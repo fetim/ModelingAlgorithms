@@ -3,7 +3,6 @@
 # run_modeling_basic.sh (Shell Script)
 #
 # It's necessary Seismic Unix package to visualization
-# Necessita do pacote Seismic Unix instalado para visualização
 #
 # Main program: Basic acoustic wave equation modeling.
 #
@@ -13,10 +12,10 @@
 #
 # updated by: Rodolfo A. C. Neves | rodolfo_profissional@hotmail.com
 # 
-# Licença: Software de uso livre e código aberto.
+# License: Opensource software
 
 #--------------------------------------------------------------------------#
-# Versão deste programa
+# version
 VERSAO="Versão 0.01"
 #--------------------------------------------------------------------------#
 
