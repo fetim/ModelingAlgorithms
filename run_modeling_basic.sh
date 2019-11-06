@@ -61,8 +61,14 @@ case "$1" in
 ;;
 
 -e) ## run main program
+	start_time=`date +%s`
 
 	./modeling_basic
+	echo ""
+	echo ""
+	echo "-----------------------------------------------"
+	echo "Time of Execution is:   $(expr `date +%s` - $start_time) s"
+	echo "-----------------------------------------------"
 	echo ""
 	echo "To visualize the results you'll need Seismic Unix package"
 	echo "Run $0 -p to plot the results"
