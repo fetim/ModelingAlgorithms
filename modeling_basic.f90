@@ -15,7 +15,7 @@ real, parameter :: pi = 4.0*ATAN(1.0)
 
 real,allocatable,dimension(:) :: source
 real,allocatable,dimension(:) :: VP1,VP2,VP3,VC
-real,allocatable,dimension(:,:) :: P1,P2,P3,C
+! real,allocatable,dimension(:,:) :: P1,P2,P3,C
 real,allocatable,dimension(:,:) :: Seism
 
 integer :: index, index_src
@@ -28,53 +28,24 @@ inix=3
 iniz=3
 endx=Nx-2
 endz=Nz-2
-
-! ! Two nested loop and one index
-! do i=1,Nx
-!     do j=1,Nz
-!         index =  j + Nz*(i-1)
-        
-!         if (mod(index,Nz)==0) then
-!             ii=index/Nz
-!         else    
-!             ii = index/Nz + 1
-!         end if
-!         jj = index  - (ii-1)*Nz
-
-!         write(*,*) j,jj,j-jj,i,ii,i-ii,index
-!     end do
-! end do
-! write(*,*) "!!!!!!!!!!!!!!!!!!!!!"
-
-! ! One loop and two indices
-! do index = 1,Nx*Nz    
-!     if (mod(index,Nz)==0) then
-!         i=index/Nz
-!     else    
-!         i = index/Nz + 1
-!     end if
-!     j = index  - (i-1)*Nz
-!     write(*,*) j,jj,j-jj,i,ii,i-ii,index
-! end do
-   
 ! time parameters
 Nt=1001
 dt=1.0e-3
 
 !source parameters
-sx=150
-sz=20
+sx   = 200  
+sz   = 20
 fcut = 30
 
 ! receiver depth
-rz=3
+rz=20
 
 ! Allocate arrays
 allocate(source(Nt))
-allocate(C(Nz,Nx))
-allocate(P1(Nz,Nx))
-allocate(P2(Nz,Nx))
-allocate(P3(Nz,Nx))
+! allocate(C(Nz,Nx))
+! allocate(P1(Nz,Nx))
+! allocate(P2(Nz,Nx))
+! allocate(P3(Nz,Nx))
 allocate(VC(Nx*Nz))
 allocate(VP1(Nx*Nz))
 allocate(VP2(Nx*Nz))
@@ -116,19 +87,19 @@ end do
 
     ! source term
     !P2(sz,sx) = P2(sz,sx) + source(k)    
-     index_src = sz + Nz*(sx-1)
-     VP2(index_src) = VP2(index_src) + source(k)
+    index_src = sz + Nz*(sx-1)
+    VP2(index_src) = VP2(index_src) + source(k)
     
-!     !wave equation
-!     ! do i=3,Nx-2
-!     !     do j=3,Nz-2                
-!     !     !4th order in space and 2nd order in time
-!     !      P3(j,i)=2*P2(j,i)-P1(j,i) + ((C(j,i)*C(j,i))*(dt*dt)/(12*h*h)) &
-!     !             &*(-(P2(j,i-2) + P2(j-2,i) + P2(j+2,i) + P2(j,i+2)) + & 
-!     !             &16*(P2(j,i-1) + P2(j-1,i) + P2(j+1,i) + P2(j,i+1))- &
-!     !             &60*P2(j,i))
-!     !     end do
-!     ! end do
+    ! !wave equation
+    ! do i=inix,endx
+    !     do j=iniz,endz 
+    !     !4th order in space and 2nd order in time
+    !      P3(j,i)=2*P2(j,i)-P1(j,i) + ((C(j,i)*C(j,i))*(dt*dt)/(12*h*h)) &
+    !             &*(-(P2(j,i-2) + P2(j-2,i) + P2(j+2,i) + P2(j,i+2)) + & 
+    !             &16*(P2(j,i-1) + P2(j-1,i) + P2(j+1,i) + P2(j,i+1))- &
+    !             &60*P2(j,i))
+    !     end do
+    ! end do
 
     do index=1,Nx*Nz 
         !4th order in space and 2nd order in time
@@ -145,14 +116,11 @@ end do
                     &*(-(VP2(j + Nz*(i-2-1)) + VP2(j-2 + Nz*(i-1)) + VP2(j+2 + Nz*(i-1)) + VP2(j + Nz*(i+2-1))) + & 
                     &16*(VP2(j + Nz*(i-1-1)) + VP2(j-1 + Nz*(i-1)) + VP2(j+1 + Nz*(i-1)) + VP2(j + Nz*(i+1-1))) - &
                     &60*VP2(j + Nz*(i-1)))
+
+    !        P3(j,i) = VP3(j + Nz*(i-1))        
+                    
          end if
     end do
-
-    !Register snapshots
-    if (mod(k,100) ==0) then
-    write(23,rec=count_snap) ((VP3(j + Nz*(i-1)),j=1,Nz),i=1,Nx)
-    count_snap=count_snap+1
-    end if
 
     ! !Register snapshots
     ! if (mod(k,100) ==0) then
@@ -167,16 +135,16 @@ end do
     end if
     
 
-! !     ! update fields
-! !     P1=P2
-! !     P2=P3
+    ! ! update fields
+    ! P1=P2
+    ! P2=P3
 
     ! update fields
      VP1=VP2
      VP2=VP3
     
-! !     !Storage Seismogram
-! !     Seism(k,:) = P2(3,:)
+    !Storage Seismogram
+    !Seism(k,:) = P3(3,:)
     !Storage Seismogram
      do rx=1,Nx
         Seism(k,rx) = VP3(rz + Nz*(rx-1))
