@@ -19,7 +19,8 @@ EXE=$(F90_SOURCE:.f90=.exe)
 FC=gfortran
 
 #Flags for compiler
-FC_FLAGS=-c               #\ #flag to create object files
+CC_FLAGS=-c         \
+         -fopenmp         \#\ #flag to create object files
 #        -otherflag		  #\ # use backslash to break lines
 $
 # ‘%’ pega o stem (tronco) do nome

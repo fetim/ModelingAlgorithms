@@ -14,7 +14,7 @@ real :: t_src,t0_src,src_aux
 real, parameter :: pi = 4.0*ATAN(1.0)
 
 real,allocatable,dimension(:) :: source
-real,allocatable,dimension(:) :: VP1,VP2,VP3,VC
+real,allocatable,dimension(:) :: P1,P2,P3,VC
 real,allocatable,dimension(:,:) :: Seism
 integer :: index, index_src
 
@@ -43,17 +43,17 @@ rz=20
 ! Allocate arrays
 allocate(source(Nt))
 allocate(VC(Nx*Nz))
-allocate(VP1(Nx*Nz))
-allocate(VP2(Nx*Nz))
-allocate(VP3(Nx*Nz))
+allocate(P1(Nx*Nz))
+allocate(P2(Nx*Nz))
+allocate(P3(Nx*Nz))
 allocate(Seism(Nt,Nx))
 
 !Initializate arrays and counters
 count_snap=1
 source = 0.0
-VP1 =0.0
-VP2 =0.0
-VP3 =0.0
+P1 =0.0
+P2 =0.0
+P3 =0.0
 VC = 1500
 
 ! Create Source Ricker
@@ -73,46 +73,53 @@ end do
  open(24, file='seismogram.bin', status='replace',&
  &FORM='unformatted',ACCESS='direct', recl=(Nx*Nt*4))
 
- ! Solve wave equation
-  do k=1,Nt
+ !$OMP PARALLEL SHARED(P1,P2,P3,C,source), PRIVATE(index,i,j)
 
-    index_src = sz + Nz*(sx-1)
-    VP2(index_src) = VP2(index_src) + source(k)
-    ! Vectorized spatial loop    
-    do index=1,Nx*Nz 
-        !4th order in space and 2nd order in time
-        if (mod(index,Nz)==0) then
-            i=index/Nz
-        else    
-            i = index/Nz + 1
+    ! Solve wave equation
+    do k=1,Nt
+
+        index_src = sz + Nz*(sx-1)
+        P2(index_src) = P2(index_src) + source(k)
+        ! Vectorized spatial loop    
+        !$OMP SECTIONS
+
+        !$OMP SECTION
+        do index=1,Nx*Nz 
+            !4th order in space and 2nd order in time
+            if (mod(index,Nz)==0) then
+                i=index/Nz
+            else    
+                i = index/Nz + 1
+            end if
+
+            j = index  - (i-1)*Nz
+
+            if ((i>=inix .and. j>=iniz) .and. (i<endx .and. j< endz)) then            
+                P3(j + Nz*(i-1))=2*P2(j + Nz*(i-1))-P1(j + Nz*(i-1)) + ((VC(j + Nz*(i-1))*VC(j + Nz*(i-1)))*(dt*dt)/(12*h*h)) &
+                        &*(-(P2(j + Nz*(i-2-1)) + P2(j-2 + Nz*(i-1)) + P2(j+2 + Nz*(i-1)) + P2(j + Nz*(i+2-1))) + & 
+                        &16*(P2(j + Nz*(i-1-1)) + P2(j-1 + Nz*(i-1)) + P2(j+1 + Nz*(i-1)) + P2(j + Nz*(i+1-1))) - &
+                        &60*P2(j + Nz*(i-1)))                 
+            end if
+        end do
+        !$OMP END SECTIONS NOWAIT
+
+        !Register snapshots
+        if (mod(k,100) ==0) then
+            write(23,rec=count_snap) ((P3(j + Nz*(i-1)),j=1,Nz),i=1,Nx)
+            count_snap=count_snap+1
         end if
+        
+        ! update fields
+        P1=P2
+        P2=P3
+        
+        do rx=1,Nx
+            Seism(k,rx) = P3(rz + Nz*(rx-1))
+        end do
 
-        j = index  - (i-1)*Nz
-
-         if ((i>=inix .and. j>=iniz) .and. (i<endx .and. j< endz)) then            
-            VP3(j + Nz*(i-1))=2*VP2(j + Nz*(i-1))-VP1(j + Nz*(i-1)) + ((VC(j + Nz*(i-1))*VC(j + Nz*(i-1)))*(dt*dt)/(12*h*h)) &
-                    &*(-(VP2(j + Nz*(i-2-1)) + VP2(j-2 + Nz*(i-1)) + VP2(j+2 + Nz*(i-1)) + VP2(j + Nz*(i+2-1))) + & 
-                    &16*(VP2(j + Nz*(i-1-1)) + VP2(j-1 + Nz*(i-1)) + VP2(j+1 + Nz*(i-1)) + VP2(j + Nz*(i+1-1))) - &
-                    &60*VP2(j + Nz*(i-1)))                 
-         end if
     end do
 
-    !Register snapshots
-    if (mod(k,100) ==0) then
-        write(23,rec=count_snap) ((VP3(j + Nz*(i-1)),j=1,Nz),i=1,Nx)
-        count_snap=count_snap+1
-    end if
-    
-    ! update fields
-     VP1=VP2
-     VP2=VP3
-    
-     do rx=1,Nx
-        Seism(k,rx) = VP3(rz + Nz*(rx-1))
-     end do
-
-   end do
-
+!$OMP END PARALLEL
 ! !Register Seismogram
  write(24,rec=1) ((Seism(k,rx),k=1,Nt),rx=1,Nx)
 
