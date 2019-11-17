@@ -1,11 +1,47 @@
-modeling_basic:		modeling_basic.o
-	gfortran modeling_basic.o -o modeling_basic
+# source:https://www.embarcados.com.br/introducao-ao-makefile/
+# author: @fetim
+# Name of project
+PROJ_NAME=Basicmodeling
 
-modeling_basic.o:	modeling_basic.f90
-	gfortran -c modeling_basic.f90
+# .f90 files
+F90_SOURCE=$(wildcard *.f90)
+
+# .mod files
+MOD_SOURCE=$(wildcard *.mod)
+
+# Object files
+OBJ=$(F90_SOURCE:.f90=.o)
+
+# Executable files
+EXE=$(F90_SOURCE:.f90=.exe)
+
+# Compiler
+FC=gfortran
+
+#Flags for compiler
+FC_FLAGS=-c               #\ #flag to create object files
+#        -otherflag		  #\ # use backslash to break lines
+$
+# ‘%’ pega o stem (tronco) do nome
+# $@ pega o nome do target e 
+# $< pega o nome do primeiro pré-requisito
+# $^ para listar todos os pré-requisitos do targe
+#
+# Compilation and linking
+#
+all: $(EXE)
+$(EXE): $(OBJ)
+	$(FC) -o $@ $<
+
+%.o: %.f90
+	$(FC) -o $@ $< $(FC_FLAGS)
 
 clean:
-	rm *.o modeling_basic
+	rm -rf *.o *.mod $(PROJ_NAME) *~ *.bin
+
+# run:
+# 	./$(PROJ_NAME)
 
 help:
+	@echo $(F90_SOURCE) $(OBJ) $(EXE)
 	@echo "Makefile do arquivo modeling_basic.f90"
