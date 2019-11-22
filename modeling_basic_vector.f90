@@ -1,4 +1,5 @@
 Program Modeling
+!$ use omp_lib    
 implicit none
 
 integer :: k,i,j
@@ -14,7 +15,7 @@ real :: t_src,t0_src,src_aux
 real, parameter :: pi = 4.0*ATAN(1.0)
 
 real,allocatable,dimension(:) :: source
-real,allocatable,dimension(:) :: P1,P2,P3,VC
+real,allocatable,dimension(:) :: P1,P2,P3,C
 real,allocatable,dimension(:,:) :: Seism
 integer :: index, index_src
 
@@ -29,7 +30,7 @@ endx=Nx-2
 endz=Nz-2
 
 ! time parameters
-Nt=1001
+Nt=2001
 dt=1.0e-3
 
 !source parameters
@@ -42,7 +43,7 @@ rz=20
 
 ! Allocate arrays
 allocate(source(Nt))
-allocate(VC(Nx*Nz))
+allocate(C(Nx*Nz))
 allocate(P1(Nx*Nz))
 allocate(P2(Nx*Nz))
 allocate(P3(Nx*Nz))
@@ -54,7 +55,7 @@ source = 0.0
 P1 =0.0
 P2 =0.0
 P3 =0.0
-VC = 1500
+C = 1500
 
 ! Create Source Ricker
 fcut_aux       = fcut/(3.*sqrt(pi))        ! Ajust to cut of gaussian function
@@ -73,35 +74,32 @@ end do
  open(24, file='seismogram.bin', status='replace',&
  &FORM='unformatted',ACCESS='direct', recl=(Nx*Nt*4))
 
- !$OMP PARALLEL SHARED(P1,P2,P3,C,source), PRIVATE(index,i,j)
-
-    ! Solve wave equation
+ ! Solve wave equation
     do k=1,Nt
-
         index_src = sz + Nz*(sx-1)
         P2(index_src) = P2(index_src) + source(k)
-        ! Vectorized spatial loop    
-        !$OMP SECTIONS
+        !$OMP PARALLEL SHARED(P1,P2,P3,C,Nx,Nz) PRIVATE(i,j,index)
+            ! Vectorized spatial loop    
+            !$OMP DO
+            do index=1,Nx*Nz 
+                !4th order in space and 2nd order in time
+                if (mod(index,Nz)==0) then
+                    i=index/Nz
+                else    
+                    i = index/Nz + 1
+                end if
 
-        !$OMP SECTION
-        do index=1,Nx*Nz 
-            !4th order in space and 2nd order in time
-            if (mod(index,Nz)==0) then
-                i=index/Nz
-            else    
-                i = index/Nz + 1
-            end if
+                j = index  - (i-1)*Nz
 
-            j = index  - (i-1)*Nz
-
-            if ((i>=inix .and. j>=iniz) .and. (i<endx .and. j< endz)) then            
-                P3(j + Nz*(i-1))=2*P2(j + Nz*(i-1))-P1(j + Nz*(i-1)) + ((VC(j + Nz*(i-1))*VC(j + Nz*(i-1)))*(dt*dt)/(12*h*h)) &
-                        &*(-(P2(j + Nz*(i-2-1)) + P2(j-2 + Nz*(i-1)) + P2(j+2 + Nz*(i-1)) + P2(j + Nz*(i+2-1))) + & 
-                        &16*(P2(j + Nz*(i-1-1)) + P2(j-1 + Nz*(i-1)) + P2(j+1 + Nz*(i-1)) + P2(j + Nz*(i+1-1))) - &
-                        &60*P2(j + Nz*(i-1)))                 
-            end if
-        end do
-        !$OMP END SECTIONS NOWAIT
+                if ((i>=inix .and. j>=iniz) .and. (i<endx .and. j< endz)) then            
+                    P3(j + Nz*(i-1))=2*P2(j + Nz*(i-1))-P1(j + Nz*(i-1)) + ((C(j + Nz*(i-1))*C(j + Nz*(i-1)))*(dt*dt)/(12*h*h)) &
+                            &*(-(P2(j + Nz*(i-2-1)) + P2(j-2 + Nz*(i-1)) + P2(j+2 + Nz*(i-1)) + P2(j + Nz*(i+2-1))) + & 
+                            &16*(P2(j + Nz*(i-1-1)) + P2(j-1 + Nz*(i-1)) + P2(j+1 + Nz*(i-1)) + P2(j + Nz*(i+1-1))) - &
+                            &60*P2(j + Nz*(i-1)))                 
+                end if
+            end do
+            !$OMP END DO
+        !$OMP END PARALLEL
 
         !Register snapshots
         if (mod(k,100) ==0) then
@@ -118,8 +116,6 @@ end do
         end do
 
     end do
-
-!$OMP END PARALLEL
 ! !Register Seismogram
  write(24,rec=1) ((Seism(k,rx),k=1,Nt),rx=1,Nx)
 

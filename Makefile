@@ -19,10 +19,10 @@ EXE=$(F90_SOURCE:.f90=.exe)
 FC=gfortran
 
 #Flags for compiler
-CC_FLAGS=-c         \
-         -fopenmp         \#\ #flag to create object files
+FC_FLAGS=-c        #\ # flag to create object files
 #        -otherflag		  #\ # use backslash to break lines
-$
+
+PARALLEL_FLAG=#-fopenmp
 # ‘%’ pega o stem (tronco) do nome
 # $@ pega o nome do target e 
 # $< pega o nome do primeiro pré-requisito
@@ -31,17 +31,28 @@ $
 # Compilation and linking
 #
 all: $(EXE)
-$(EXE): $(OBJ)
-	$(FC) -o $@ $<
+# $(EXE): $(OBJ)
+# 	@echo ""
+# 	@echo "main program generation ..."
+# 	$(FC) -o $@ $< $(PARALLEL_FLAG)
 
+%.exe: %.o
+	@echo ""
+	@echo "main program generation ..."
+	$(FC) -o $@ $< $(PARALLEL_FLAG)
+	
 %.o: %.f90
-	$(FC) -o $@ $< $(FC_FLAGS)
+	@echo ""
+	@echo "object files generation ..."
+	$(FC) -o $@ $< $(FC_FLAGS) $(PARALLEL_FLAG)
 
 clean:
-	rm -rf *.o *.mod $(PROJ_NAME) *~ *.bin
+	@echo "Removing auxiliar files ..."
+	rm -rf *.o *.mod $(PROJ_NAME) *~ *.bin *.exe
 
-# run:
-# 	./$(PROJ_NAME)
+run:
+	@echo "Running program ... "
+	./sum_openmp.exe
 
 help:
 	@echo $(F90_SOURCE) $(OBJ) $(EXE)
