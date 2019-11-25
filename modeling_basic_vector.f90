@@ -75,13 +75,19 @@ end do
  open(24, file='seismogram.bin', status='replace',&
  &FORM='unformatted',ACCESS='direct', recl=(Nx*Nt*4))
 
+ ! Compiling with pgi
+! pgfortran -acc -Minfo -o modeling_gpu modeling_basic_vector.f90
+ !$acc enter data copyin(P1,P2,P3,C,source)
  ! Solve wave equation
     do k=1,Nt
         index_src = sz + Nz*(sx-1)
-        P2(index_src) = P2(index_src) + source(k)
+        !P2(index_src) = P2(index_src) + source(k)
+
+        !$acc parallel loop present(P1,P2,P3,C)
+        
         !$OMP PARALLEL SHARED(P1,P2,P3,C,Nx,Nz) PRIVATE(i,j,index)
-            ! Vectorized spatial loop    
-            !$OMP DO
+        ! Vectorized spatial loop    
+        !$OMP DO
             do index=1,Nx*Nz 
                 !4th order in space and 2nd order in time
                 if (mod(index,Nz)==0) then
@@ -102,23 +108,32 @@ end do
             !$OMP END DO
         !$OMP END PARALLEL
 
-        !Register snapshots
-        if (mod(k,100) ==0) then
-            write(23,rec=count_snap) ((P3(j + Nz*(i-1)),j=1,Nz),i=1,Nx)
-            count_snap=count_snap+1
-        end if
+        ! !Register snapshots
+        ! if (mod(k,100) ==0) then
+        !     write(23,rec=count_snap) ((P3(j + Nz*(i-1)),j=1,Nz),i=1,Nx)
+        !     count_snap=count_snap+1
+        ! end if
         
         ! update fields
-        P1=P2
-        P2=P3
-        
-        do rx=1,Nx
-            Seism(k,rx) = P3(rz + Nz*(rx-1))
+        !$acc parallel loop present(P1,P2,P3)
+        do index=1,Nx*Nz
+            P1(index)=P2(index)
+            P2(index)=P3(index)    
         end do
+        
+        
+        ! do rx=1,Nx
+        !     Seism(k,rx) = P3(rz + Nz*(rx-1))
+        ! end do
 
     end do
-! !Register Seismogram
- write(24,rec=1) ((Seism(k,rx),k=1,Nt),rx=1,Nx)
+    !$acc exit data copyout(P3)
+
+ !Register Seismogram
+ !write(24,rec=1) ((Seism(k,rx),k=1,Nt),rx=1,Nx)
+
+
+    write(23,rec=count_snap) ((P3(j + Nz*(i-1)),j=1,Nz),i=1,Nx)
 
 !close files
 close(23)
