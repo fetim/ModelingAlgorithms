@@ -17,10 +17,9 @@ real,allocatable,dimension(:) :: source
 real,allocatable,dimension(:,:) :: P1,P2,P3,C
 real,allocatable,dimension(:,:) :: Seism
 
-integer :: index, index_src
 ! model parameters
-Nx=400
-Nz=300
+Nx=1000
+Nz=1000
 h=10
 
 inix=3
@@ -29,7 +28,7 @@ endx=Nx-2
 endz=Nz-2
 
 ! time parameters
-Nt=1001
+Nt=2001
 dt=1.0e-3
 
 !source parameters

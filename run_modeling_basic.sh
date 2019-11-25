@@ -99,10 +99,10 @@ case "$1" in
 	## Visualization
 	
 	#Snapshots
-	xmovie n1=300 n2=400 sleep=1 loop=1 < snapshots.bin &
+	xmovie n1=1000 n2=1000 sleep=1 loop=1 < snapshots.bin &
 
 	#Seismogram
-	ximage n1=1001 < seismogram.bin perc=99 &
+	ximage n1=2001 < seismogram.bin perc=99 &
 
 	exit 0
 ;;

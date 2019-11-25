@@ -20,8 +20,8 @@ real,allocatable,dimension(:,:) :: Seism
 integer :: index, index_src
 
 ! model parameters
-Nx=400
-Nz=300
+Nx=1000
+Nz=1000
 h=10
 
 inix=3
@@ -48,6 +48,7 @@ allocate(P1(Nx*Nz))
 allocate(P2(Nx*Nz))
 allocate(P3(Nx*Nz))
 allocate(Seism(Nt,Nx))
+
 
 !Initializate arrays and counters
 count_snap=1
