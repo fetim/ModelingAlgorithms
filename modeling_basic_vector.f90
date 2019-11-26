@@ -16,7 +16,7 @@ real, parameter :: pi = 4.0*ATAN(1.0)
 
 real,allocatable,dimension(:) :: source
 real,allocatable,dimension(:) :: P1,P2,P3,C
-real,allocatable,dimension(:,:) :: Seism
+real,allocatable,dimension(:) :: Seism
 integer :: index, index_src
 
 ! model parameters
@@ -47,7 +47,7 @@ allocate(C(Nx*Nz))
 allocate(P1(Nx*Nz))
 allocate(P2(Nx*Nz))
 allocate(P3(Nx*Nz))
-allocate(Seism(Nt,Nx))
+allocate(Seism(Nt*Nx))
 
 
 !Initializate arrays and counters
@@ -77,12 +77,13 @@ end do
 
  ! Compiling with pgi
 ! pgfortran -acc -Minfo -o modeling_gpu modeling_basic_vector.f90
- !$acc enter data copyin(P1,P2,P3,C,source)
+ !$acc enter data copyin(P1,P2,P3,C,source) create(Seism)
  ! Solve wave equation
     do k=1,Nt
         index_src = sz + Nz*(sx-1)
-        !P2(index_src) = P2(index_src) + source(k)
-
+        !$acc kernels
+        P2(index_src) = P2(index_src) + source(k)
+        !$acc end kernels
         !$acc parallel loop present(P1,P2,P3,C)
         
         !$OMP PARALLEL SHARED(P1,P2,P3,C,Nx,Nz) PRIVATE(i,j,index)
@@ -122,15 +123,16 @@ end do
         end do
         
         
-        ! do rx=1,Nx
-        !     Seism(k,rx) = P3(rz + Nz*(rx-1))
-        ! end do
+        !$acc parallel loop present(Seism,P3)
+        do rx=1,Nx
+            Seism(k + (rx-1)*Nt) = P3(rz + Nz*(rx-1))
+        end do
 
     end do
-    !$acc exit data copyout(P3)
+    !$acc exit data copyout(P3,Seism)
 
- !Register Seismogram
- !write(24,rec=1) ((Seism(k,rx),k=1,Nt),rx=1,Nx)
+    !Register Seismogram
+    write(24,rec=1) (Seism(k + (rx-1)*Nt),k=1,Nt*Nx)
 
 
     write(23,rec=count_snap) ((P3(j + Nz*(i-1)),j=1,Nz),i=1,Nx)
