@@ -30,11 +30,18 @@ CC_FLAGS=-c        #\ # flag to create object files
 # Compilation and linking
 #
 all: $(EXE)
+# $(EXE): $(OBJ)
+# 	@echo ""
+# 	@echo "main program generation ..."
+# 	$(CC) -o $@ $< $(PARALLEL_FLAG)
+
 %.exe: %.o
 	$(CC) -o $@ $< -lm
 	
 %.o: %.c
-	$(CC) -o $@ $< $(CC_FLAGS) -lm
+	# @echo ""
+	# @echo "object files generation ..."
+	$(CC) -o $@ $< $(CC_FLAGS)-lm
 
 clean:
 	@echo "Removing temporaly files ..."

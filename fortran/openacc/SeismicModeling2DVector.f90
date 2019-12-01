@@ -100,8 +100,6 @@ end do
                             &60*P2(j + Nz*(i-1)))                 
                 end if
             end do
-            !$OMP END DO
-        !$OMP END PARALLEL
 
         ! !Register snapshots
         ! if (mod(k,100) ==0) then
