@@ -25,7 +25,7 @@ float* ricker(int n, float fcorte, float tlag, float dt)
         aux1 = (1.0-2.0*pow(i*dt,2.0)*pow(fcorte,2.0)*pow(pi,2.0)); 
         aux2 = exp(-pow(i*dt,2.0)*pow(fcorte,2.0)*pow(pi,2.0));
         saida[i] = aux1 * aux2;	
-        printf("%f \n", saida[i]);
+        printf("%f \n", aux2);
     }
 	return(saida);
 }
