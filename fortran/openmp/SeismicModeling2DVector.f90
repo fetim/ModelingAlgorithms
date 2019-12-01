@@ -79,9 +79,9 @@ end do
     do k=1,Nt
         index_src = sz + Nz*(sx-1)
         P2(index_src) = P2(index_src) + source(k)
-        !$OMP PARALLEL SHARED(P1,P2,P3,C,Nx,Nz) PRIVATE(i,j,index)
-        ! Vectorized spatial loop    
-        !$OMP DO
+        !$OMP PARALLEL SHARED(P1,P2,P3,C,Nx,Nz) PRIVATE(i,j,index)        
+            !$OMP DO
+            ! Vectorized spatial loop    
             do index=1,Nx*Nz 
                 !4th order in space and 2nd order in time
                 if (mod(index,Nz)==0) then
@@ -98,22 +98,23 @@ end do
                             &16*(P2(j + Nz*(i-1-1)) + P2(j-1 + Nz*(i-1)) + P2(j+1 + Nz*(i-1)) + P2(j + Nz*(i+1-1))) - &
                             &60*P2(j + Nz*(i-1)))                 
                 end if
-            end do
+            end do            
             !$OMP END DO
+
         !$OMP END PARALLEL
 
         !Register snapshots
         if (mod(k,100) ==0) then
             write(23,rec=count_snap) ((P3(j + Nz*(i-1)),j=1,Nz),i=1,Nx)
             count_snap=count_snap+1
-        end if
-        
-        ! update fields
+        end if     
+
+        ! update fields                
         do index=1,Nx*Nz
             P1(index)=P2(index)
             P2(index)=P3(index)    
         end do
-
+        
         !Storage Seismogram
         do rx=1,Nx
             Seism(k + (rx-1)*Nt) = P3(rz + Nz*(rx-1))
