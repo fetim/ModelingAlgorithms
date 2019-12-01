@@ -16,7 +16,7 @@ real, parameter :: pi = 4.0*ATAN(1.0)
 
 real,allocatable,dimension(:) :: source
 real,allocatable,dimension(:) :: P1,P2,P3,C
-real,allocatable,dimension(:) :: Seism
+real,allocatable,dimension(:) :: Seism, record
 integer :: index, index_src
 
 ! model parameters
@@ -48,6 +48,8 @@ allocate(P1(Nx*Nz))
 allocate(P2(Nx*Nz))
 allocate(P3(Nx*Nz))
 allocate(Seism(Nt*Nx))
+allocate(record(Nx))
+
 
 
 !Initializate arrays and counters
@@ -57,6 +59,8 @@ P1 =0.0
 P2 =0.0
 P3 =0.0
 C = 1500
+Seism = 0.0
+record = 0.0
 
 ! Create Source Ricker
 fcut_aux       = fcut/(3.*sqrt(pi))        ! Ajust to cut of gaussian function
@@ -75,24 +79,14 @@ end do
  open(24, file='seismogram.bin', status='replace',&
  &FORM='unformatted',ACCESS='direct', recl=(Nx*Nt*4))
 
- ! Compiling with pgi
-! pgfortran -acc -Minfo -o modeling_gpu modeling_basic_vector.f90
- !$acc enter data copyin(P1,P2,P3,C,source) create(Seism)
  ! Solve wave equation
     do k=1,Nt
         index_src = sz + Nz*(sx-1)
-        !$acc kernels
-        P2(index_src) = P2(index_src) + source(k)
-        !$acc end kernels
-        !$acc parallel loop present(P1,P2,P3,C)
-        
-        !$OMP PARALLEL SHARED(P1,P2,P3,C,Nx,Nz) PRIVATE(i,j,index)
-        ! Vectorized spatial loop    
-        !$OMP DO
+        P2(index_src) = P2(index_src) + source(k)        
             do index=1,Nx*Nz 
                 !4th order in space and 2nd order in time
                 if (mod(index,Nz)==0) then
-                    i=index/Nz
+                    i = index/Nz
                 else    
                     i = index/Nz + 1
                 end if
@@ -106,37 +100,29 @@ end do
                             &60*P2(j + Nz*(i-1)))                 
                 end if
             end do
-            !$OMP END DO
-        !$OMP END PARALLEL
 
-        ! !Register snapshots
-        ! if (mod(k,100) ==0) then
-        !     write(23,rec=count_snap) ((P3(j + Nz*(i-1)),j=1,Nz),i=1,Nx)
-        !     count_snap=count_snap+1
-        ! end if
+        !Register snapshots
+        if (mod(k,100) ==0) then
+            write(23,rec=count_snap) ((P3(j + Nz*(i-1)),j=1,Nz),i=1,Nx)
+            count_snap=count_snap+1
+        end if
         
         ! update fields
-        !$acc parallel loop present(P1,P2,P3)
         do index=1,Nx*Nz
             P1(index)=P2(index)
             P2(index)=P3(index)    
         end do
         
-        
-        !$acc parallel loop present(Seism,P3)
+        !Storage Seismogram
         do rx=1,Nx
             Seism(k + (rx-1)*Nt) = P3(rz + Nz*(rx-1))
         end do
 
     end do
-    !$acc exit data copyout(P3,Seism)
-
+    
     !Register Seismogram
-    write(24,rec=1) (Seism(k + (rx-1)*Nt),k=1,Nt*Nx)
-
-
-    write(23,rec=count_snap) ((P3(j + Nz*(i-1)),j=1,Nz),i=1,Nx)
-
+    write(24,rec=1) (Seism(k),k=1,Nt*Nx)
+    
 !close files
 close(23)
 close(24)

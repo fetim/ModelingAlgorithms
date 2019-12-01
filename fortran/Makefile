@@ -22,9 +22,6 @@ FC=gfortran
 FC_FLAGS=-c        #\ # flag to create object files
 #        -otherflag		  #\ # use backslash to break lines
 
-PARALLEL_FLAG=-fopenmp
-
-
 # ‘%’ pega o stem (tronco) do nome
 # $@ pega o nome do target e 
 # $< pega o nome do primeiro pré-requisito
@@ -33,20 +30,15 @@ PARALLEL_FLAG=-fopenmp
 # Compilation and linking
 #
 all: $(EXE)
-# $(EXE): $(OBJ)
-# 	@echo ""
-# 	@echo "main program generation ..."
-# 	$(FC) -o $@ $< $(PARALLEL_FLAG)
-
 %.exe: %.o
 	# @echo ""
 	# @echo "main program generation ..."
-	$(FC) -o $@ $< $(PARALLEL_FLAG) -O3
+	$(FC) -o $@ $< -O3
 	
 %.o: %.f90
 	# @echo ""
 	# @echo "object files generation ..."
-	$(FC) -o $@ $< $(FC_FLAGS) $(PARALLEL_FLAG) -O3
+	$(FC) -o $@ $< $(FC_FLAGS) -O3
 
 clean:
 	@echo "Removing temporaly files ..."

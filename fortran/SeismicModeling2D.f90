@@ -98,9 +98,9 @@ end do
     P1=P2
     P2=P3
     
-    !Storage Seismogram
-    Seism(k,:) = P3(3,:)
-
+    ! !Storage Seismogram
+    Seism(k,:) = P3(rz,:)
+    
    end do
 
 ! !Register Seismogram
