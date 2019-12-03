@@ -21,11 +21,8 @@ float* ricker(int n, float fcorte, float tlag, float dt)
 	for (int i = 0; i < n; i++)
 	{
 		float td = i * dt - tlag;
-		// saida[i] = (1 - 2 * pi*(pi*fc*td)*(pi*fc*td))*exp(-pi * (pi*fc*td)*(pi*fc*td));
-        aux1 = (1.0-2.0*pow(i*dt,2.0)*pow(fcorte,2.0)*pow(pi,2.0)); 
-        aux2 = exp(-pow(i*dt,2.0)*pow(fcorte,2.0)*pow(pi,2.0));
-        saida[i] = aux1 * aux2;	
-        printf("%f \n", aux2);
+        saida[i] = (1 - 2 * pi*(pi*fc*td)*(pi*fc*td))*exp(-pi * (pi*fc*td)*(pi*fc*td));        
+        printf("%f  %f %f \n", aux1,aux2,saida[i]);
     }
 	return(saida);
 }
@@ -51,7 +48,7 @@ int main()
 	float dP          = (float)10;
 	float dL          = (float)10;
 	int N_SOURCES     = (int)1;
-	int N_ITERACAO    = (int)2001;
+	int N_ITERACAO    = (int)10;
 	float dt          = (float)4.0e-4;
     float ratio       = (float)1;
 	int BORDA         = (int)100;

@@ -64,7 +64,7 @@ if __name__ =="__main__":
     import numpy as np
 
     filename  = 'C/waveletricker.bin'
-    dim1=2001
+    dim1=10
     dim2=1
 
 
@@ -74,7 +74,7 @@ if __name__ =="__main__":
     matrix = readbinaryfile(dim1,dim2,filename)
     #   plotmatrix(matrix,'jet')
 
-    print('Size: ', matrix.max())
+    print('Size: ', np.array(matrix))
     pl.figure()
     pl.plot(matrix)
-    pl.draw()
+    pl.show()
