@@ -64,7 +64,7 @@ if __name__ =="__main__":
     import numpy as np
 
     filename  = 'C/waveletricker.bin'
-    dim1=10
+    dim1=8001
     dim2=1
 
 

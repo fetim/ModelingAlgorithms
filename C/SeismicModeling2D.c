@@ -21,8 +21,7 @@ float* ricker(int n, float fcorte, float tlag, float dt)
 	for (int i = 0; i < n; i++)
 	{
 		float td = i * dt - tlag;
-        saida[i] = (1 - 2 * pi*(pi*fc*td)*(pi*fc*td))*exp(-pi * (pi*fc*td)*(pi*fc*td));        
-        printf("%f  %f %f \n", aux1,aux2,saida[i]);
+        saida[i] = (1 - 2 * pi*(pi*fc*td)*(pi*fc*td))*exp(-pi * (pi*fc*td)*(pi*fc*td));
     }
 	return(saida);
 }
@@ -48,7 +47,7 @@ int main()
 	float dP          = (float)10;
 	float dL          = (float)10;
 	int N_SOURCES     = (int)1;
-	int N_ITERACAO    = (int)10;
+	int N_ITERACAO    = (int)8001;
 	float dt          = (float)4.0e-4;
     float ratio       = (float)1;
 	int BORDA         = (int)100;
@@ -64,7 +63,7 @@ int main()
     }
 
     /* Source wavelet */
-    float* wavelet = ricker(N_ITERACAO, 30, 0, dt);
+    float* wavelet = ricker(N_ITERACAO, 30, N_ITERACAO*dt/2, dt);
     
     export_float32("waveletricker.bin", N_ITERACAO, wavelet);
 
