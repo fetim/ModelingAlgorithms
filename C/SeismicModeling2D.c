@@ -39,6 +39,26 @@ void export_float32(char* nome, int N_PONTOS, float* vetor)
 
 }
 
+float* import_float32(char* nome, int N_PONTOS)
+{
+	FILE * fp;
+	size_t result;
+
+	fp = fopen(nome, "rb");
+	if (fp == NULL) { fputs("File error", stderr); exit(1); }
+
+	float* buffer = (float*)malloc(N_PONTOS * sizeof(float));
+
+	if (buffer == NULL) { fputs("Memory error", stderr); exit(2); }
+
+	result = fread(buffer, sizeof(float), N_PONTOS, fp);
+	if (result != N_PONTOS) { fputs("Reading error", stderr); exit(3); }
+
+	fclose(fp);
+	return (buffer);
+}
+
+
 int main()
 {
     /* Main parameters*/
@@ -62,10 +82,19 @@ int main()
         CP[i] = 1500;
     }
 
+    FILE *fp;
+    int buffer;
+
+    fp = fopen("teste1.dat", "r"); 
+    while(fgets(buffer, 1, (FILE*) fp)) {
+        printf("%d\n", buffer);
+    }
+    fclose(fp);
+
     /* Source wavelet */
-    float* wavelet = ricker(N_ITERACAO, 30, N_ITERACAO*dt/2, dt);
+    // float* wavelet = ricker(N_ITERACAO, 30, N_ITERACAO*dt/2, dt);
     
-    export_float32("waveletricker.bin", N_ITERACAO, wavelet);
+    // export_float32("waveletricker.bin", N_ITERACAO, wavelet);
 
     
     // for (int i=0;i<= N_ITERACAO; i++)
