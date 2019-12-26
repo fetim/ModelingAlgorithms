@@ -17,47 +17,88 @@ float* ricker(int n, float fcorte, float tlag, float dt)
 	float fc = fcorte / (3 * sqrt(pi));
     float aux1 = 0.0;
     float aux2 = 0.0;
-	float* saida = (float*)malloc(n * sizeof(float));
+	float* output = (float*)malloc(n * sizeof(float));
 	for (int i = 0; i < n; i++)
 	{
 		float td = i * dt - tlag;
-        saida[i] = (1 - 2 * pi*(pi*fc*td)*(pi*fc*td))*exp(-pi * (pi*fc*td)*(pi*fc*td));
+        output[i] = (1 - 2 * pi*(pi*fc*td)*(pi*fc*td))*exp(-pi * (pi*fc*td)*(pi*fc*td));
     }
-	return(saida);
+	return(output);
 }
 
-void export_float32(char* nome, int N_PONTOS, float* vetor)
+void export_float32(char* name, int N_POINTS, float* vector)
 {
-	FILE * fp;
-	fp = fopen(nome, "wb");
+	FILE* fp;
+	fp = fopen(name, "wb");
 	if (fp != NULL)
 	{
-		fwrite((char*)vetor, N_PONTOS * sizeof(float), 1, fp);
+		fwrite((char*)vector, N_POINTS * sizeof(float), 1, fp);
 	}
 	fclose(fp);
-	//	printf("%s escrito com sucesso!\n", nome);
+	
+	printf("%s successfully complete a written \n", name);
 
 }
 
-float* import_float32(char* nome, int N_PONTOS)
+void export_ascii(char* name, int N_lines, float* vector)
+{
+	FILE * fp;
+	fp = fopen (name,"w");
+	for(int i = 0; i<N_lines;i++)
+	{		
+		fprintf(fp, "%f \n", vector[i]);
+	}
+	printf("%s successfully complete a written, \n", name);
+	fclose(fp);
+}
+
+
+float* import_float32(char* name, int N_POINTS)
 {
 	FILE * fp;
 	size_t result;
 
-	fp = fopen(nome, "rb");
+	fp = fopen(name, "rb");
 	if (fp == NULL) { fputs("File error", stderr); exit(1); }
 
-	float* buffer = (float*)malloc(N_PONTOS * sizeof(float));
+	float* buffer = (float*)malloc(N_POINTS * sizeof(float));
 
 	if (buffer == NULL) { fputs("Memory error", stderr); exit(2); }
 
-	result = fread(buffer, sizeof(float), N_PONTOS, fp);
-	if (result != N_PONTOS) { fputs("Reading error", stderr); exit(3); }
+	result = fread(buffer, sizeof(float), N_POINTS, fp);
+	if (result != N_POINTS) { fputs("Reading error", stderr); exit(3); }
 
 	fclose(fp);
 	return (buffer);
 }
 
+
+float* import_ascii(char* name,int N_lines)
+{
+	FILE * fp;
+	char str[100];
+	int count = 0;
+	float* output = (float*)malloc(N_lines * sizeof(float));
+	fp = fopen (name, "r");  
+
+	if(fp == NULL) {
+      perror("Error opening file");
+    }
+    else{
+		printf("\n The content of the file %s is  :\n",name);
+		for(int i = 0; i<N_lines;i++)
+		{
+			fscanf(fp, "%s", str);
+			output[i] = atoi(str);
+			printf("%f input \n", output[i]);
+			count++;
+		}
+		printf("\n\n");
+		printf("Number of lines = %i \n", count);
+		fclose (fp);
+		return(output);
+	}
+}
 
 int main()
 {
@@ -73,34 +114,48 @@ int main()
 	int BORDA         = (int)100;
 	int N_REC_VP      = (int)1000;
 	
-    int N_PONTOS = TAM_P*TAM_L;
+    int N_POINTS = TAM_P*TAM_L;
     
     /* Velocity model */
-    float* CP = (float*)malloc(N_PONTOS * sizeof(float));
-    for (int i = 0; i <= N_PONTOS; i++)
+    float* CP = (float*)malloc(N_POINTS * sizeof(float));
+    for (int i = 0; i <= N_POINTS; i++)
     {
         CP[i] = 1500;
     }
 
-    FILE *fp;
-    int buffer;
+	
+	// char fname[20]="666";
+	// char nametest[20];
+	// // float recebe;
 
-    fp = fopen("teste1.dat", "r"); 
-    while(fgets(buffer, 1, (FILE*) fp)) {
-        printf("%d\n", buffer);
-    }
-    fclose(fp);
+	// printf(" %s \n",fname);
+	
+	// sprintf(nametest, "%f", dt);
 
+	// printf(" %s \n",nametest);
+		
+	// recebe = atoi(fname);
+	
+	// printf(" %f \n",recebe/4);
     /* Source wavelet */
-    // float* wavelet = ricker(N_ITERACAO, 30, N_ITERACAO*dt/2, dt);
-    
-    // export_float32("waveletricker.bin", N_ITERACAO, wavelet);
+    float* wavelet = ricker(N_ITERACAO, 30, N_ITERACAO*dt/2, dt);
+
+	float* arraytest = (float*)malloc(N_ITERACAO * sizeof(float));
+
+	//export_ascii("asciifile.dat",N_ITERACAO, wavelet);
+
+
+	arraytest = import_ascii("asciifile.dat",N_ITERACAO);
+
+	/* Write a binary in disk */
+    // export_float32("waveletricker2.bin", N_ITERACAO, wavelet);
 
     
-    // for (int i=0;i<= N_ITERACAO; i++)
-    // {
-    //     printf("%i sample %f \n",i, wavelet[i]);
-    // }
+    for (int i=0;i < 4; i++)
+    {
+        printf("%i sample %f \n",i, arraytest[i]);
+    }
     // return 0;
+
 
 }
