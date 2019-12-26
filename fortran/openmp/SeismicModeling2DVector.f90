@@ -56,6 +56,8 @@ source = 0.0
 P1 =0.0
 P2 =0.0
 P3 =0.0
+
+! Velocity model
 C = 1500
 
 ! Create Source Ricker
@@ -128,4 +130,5 @@ end do
 !close files
 close(23)
 close(24)
+
 end program

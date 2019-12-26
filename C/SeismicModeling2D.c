@@ -26,6 +26,27 @@ float* ricker(int n, float fcorte, float tlag, float dt)
 	return(output);
 }
 
+float* ricker_short(float fcut, float dt)
+{
+	float pi      = 4 * atan(1);
+	float fc      = fcut / (3 * sqrt(pi));
+	float t_src   = 0.0;
+	float t0_src  = 4*sqrt(pi)/fcut;	
+    float aux     = 0.0;
+	int Nt_src    = 2*t0_src/dt + 1;
+
+	float* output = (float*)malloc(Nt_src * sizeof(float));
+	for (int i = 0; i < Nt_src; i++)
+	{
+		t_src = i*dt-t0_src;
+		aux = pi*(pi*fc*t_src)*(pi*fc*t_src);
+		output[i] = (2*aux-1)*exp(-aux);
+		printf("output[%i] = %f \n",i, output[i]);
+    }
+	printf("Source samples = %d \n", Nt_src);
+	return(output);
+}
+
 void export_float32(char* name, int N_POINTS, float* vector)
 {
 	FILE* fp;
@@ -36,7 +57,7 @@ void export_float32(char* name, int N_POINTS, float* vector)
 	}
 	fclose(fp);
 	
-	printf("%s successfully complete a written \n", name);
+	printf("%s successfully written. \n", name);
 
 }
 
@@ -48,7 +69,7 @@ void export_ascii(char* name, int N_lines, float* vector)
 	{		
 		fprintf(fp, "%f \n", vector[i]);
 	}
-	printf("%s successfully complete a written, \n", name);
+	printf("%s successfully written. \n", name);
 	fclose(fp);
 }
 
@@ -85,16 +106,14 @@ float* import_ascii(char* name,int N_lines)
       perror("Error opening file");
     }
     else{
-		printf("\n The content of the file %s is  :\n",name);
 		for(int i = 0; i<N_lines;i++)
 		{
 			fscanf(fp, "%s", str);
 			output[i] = atoi(str);
-			printf("%f input \n", output[i]);
 			count++;
 		}
 		printf("\n\n");
-		printf("Number of lines = %i \n", count);
+		printf("Reading %s.  Number of lines = %i \n",name, count);
 		fclose (fp);
 		return(output);
 	}
@@ -102,60 +121,38 @@ float* import_ascii(char* name,int N_lines)
 
 int main()
 {
-    /* Main parameters*/
-    int TAM_P         = (int)1000;
-	int TAM_L         = (int)1000;
+    /* Model parameters*/
+    int SIZE_P        = (int)1000;
+	int SIZE_L        = (int)1000;
 	float dP          = (float)10;
 	float dL          = (float)10;
-	int N_SOURCES     = (int)1;
-	int N_ITERACAO    = (int)8001;
-	float dt          = (float)4.0e-4;
-    float ratio       = (float)1;
-	int BORDA         = (int)100;
-	int N_REC_VP      = (int)1000;
-	
-    int N_POINTS = TAM_P*TAM_L;
-    
+
+	/* Time parameters*/
+	int Nt            = (int)2001;
+	float dt          = (float)1.0e-3;
+
+	 /* Source parameters*/
+	 int sx           = 200;
+	 int sz           = 20;
+	 float fcut       = 30;
+
+	 /* Receiver position */
+	 int rz           = 20;
+
     /* Velocity model */
-    float* CP = (float*)malloc(N_POINTS * sizeof(float));
-    for (int i = 0; i <= N_POINTS; i++)
+    float* CP = (float*)malloc(SIZE_P*SIZE_L * sizeof(float));
+    for (int i = 0; i <= SIZE_P*SIZE_L; i++)
     {
         CP[i] = 1500;
     }
-
 	
-	// char fname[20]="666";
-	// char nametest[20];
-	// // float recebe;
-
-	// printf(" %s \n",fname);
-	
-	// sprintf(nametest, "%f", dt);
-
-	// printf(" %s \n",nametest);
-		
-	// recebe = atoi(fname);
-	
-	// printf(" %f \n",recebe/4);
     /* Source wavelet */
-    float* wavelet = ricker(N_ITERACAO, 30, N_ITERACAO*dt/2, dt);
+    // float* wavelet = ricker(Nt, 30, Nt*dt/5, dt);	
 
-	float* arraytest = (float*)malloc(N_ITERACAO * sizeof(float));
+	int src_samples;
 
-	//export_ascii("asciifile.dat",N_ITERACAO, wavelet);
-
-
-	arraytest = import_ascii("asciifile.dat",N_ITERACAO);
-
-	/* Write a binary in disk */
-    // export_float32("waveletricker2.bin", N_ITERACAO, wavelet);
-
-    
-    for (int i=0;i < 4; i++)
-    {
-        printf("%i sample %f \n",i, arraytest[i]);
-    }
-    // return 0;
-
+    float* wavelet = ricker_short(30, dt);
+		
+	export_float32("waveletricker.bin", src_samples, wavelet);
 
 }
