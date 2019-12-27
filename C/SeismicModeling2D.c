@@ -15,8 +15,6 @@ float* ricker(int n, float fcorte, float tlag, float dt)
 {
 	float pi = 4 * atan(1);
 	float fc = fcorte / (3 * sqrt(pi));
-    float aux1 = 0.0;
-    float aux2 = 0.0;
 	float* output = (float*)malloc(n * sizeof(float));
 	for (int i = 0; i < n; i++)
 	{
@@ -40,11 +38,21 @@ float* ricker_short(float fcut, float dt)
 	{
 		t_src = i*dt-t0_src;
 		aux = pi*(pi*fc*t_src)*(pi*fc*t_src);
-		output[i] = (2*aux-1)*exp(-aux);
-		printf("output[%i] = %f \n",i, output[i]);
+		output[i] = -(2*aux-1)*exp(-aux);
     }
 	printf("Source samples = %d \n", Nt_src);
 	return(output);
+}
+
+float ricker_short_Nsample(float fcut, float dt)
+{
+	float pi      = 4 * atan(1);
+	float fc      = fcut / (3 * sqrt(pi));
+	float t0_src  = 4*sqrt(pi)/fcut;	
+	float Nt_src    = 2*t0_src/dt + 1;
+
+	printf("Source samples = %f \n", Nt_src);
+	return(Nt_src);
 }
 
 void export_float32(char* name, int N_POINTS, float* vector)
@@ -57,7 +65,7 @@ void export_float32(char* name, int N_POINTS, float* vector)
 	}
 	fclose(fp);
 	
-	printf("%s successfully written. \n", name);
+	printf("%s written successfully. Number of lines = %d \n", name,N_POINTS);
 
 }
 
@@ -69,7 +77,7 @@ void export_ascii(char* name, int N_lines, float* vector)
 	{		
 		fprintf(fp, "%f \n", vector[i]);
 	}
-	printf("%s successfully written. \n", name);
+	printf("%s written successfully. \n", name);
 	fclose(fp);
 }
 
@@ -131,28 +139,39 @@ int main()
 	int Nt            = (int)2001;
 	float dt          = (float)1.0e-3;
 
-	 /* Source parameters*/
-	 int sx           = 200;
-	 int sz           = 20;
-	 float fcut       = 30;
+	/* Source parameters*/
+	int sx           = 200;
+	int sz           = 20;
+	float fcut       = 30;
 
-	 /* Receiver position */
-	 int rz           = 20;
+	/* Receiver position */
+	int rz           = 20;
 
     /* Velocity model */
-    float* CP = (float*)malloc(SIZE_P*SIZE_L * sizeof(float));
+    float* VP = (float*)malloc(SIZE_P*SIZE_L*sizeof(float));
     for (int i = 0; i <= SIZE_P*SIZE_L; i++)
     {
-        CP[i] = 1500;
+        VP[i] = 1500;
     }
 	
     /* Source wavelet */
-    // float* wavelet = ricker(Nt, 30, Nt*dt/5, dt);	
+    //float* wavelet = ricker(Nt, 30, Nt*dt/5, dt);	
 
-	int src_samples;
+	/* Source wavelet */
+    float* wavelet = ricker_short(30, dt);	
+	float src_samples = ricker_short_Nsample(30, dt);
+	
+	/* Allocate array */
+	float* P1 = (float*)malloc(SIZE_P*SIZE_L*sizeof(float)); //past
+	float* P2 = (float*)malloc(SIZE_P*SIZE_L*sizeof(float)); //present
+	float* P3 = (float*)malloc(SIZE_P*SIZE_L*sizeof(float)); //future
 
-    float* wavelet = ricker_short(30, dt);
-		
-	export_float32("waveletricker.bin", src_samples, wavelet);
+	//export_float32("waveletricker.bin", src_samples, wavelet);
+	for (int n=0; n<Nt;n++)
+	{
 
+
+		printf("time = %f s \n",n*dt);
+
+	}
 }
