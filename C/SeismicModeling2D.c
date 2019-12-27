@@ -24,7 +24,7 @@ float* ricker(int n, float fcorte, float tlag, float dt)
 	return(output);
 }
 
-float* ricker_short(float fcut, float dt)
+float* ricker_short(int n,float fcut, float dt)
 {
 	float pi      = 4 * atan(1);
 	float fc      = fcut / (3 * sqrt(pi));
@@ -33,7 +33,7 @@ float* ricker_short(float fcut, float dt)
     float aux     = 0.0;
 	int Nt_src    = 2*t0_src/dt + 1;
 
-	float* output = (float*)malloc(Nt_src * sizeof(float));
+	float* output = (float*)malloc(n * sizeof(float));for (int i=0; i < n;i++) output[i]=0;
 	for (int i = 0; i < Nt_src; i++)
 	{
 		t_src = i*dt-t0_src;
@@ -130,48 +130,90 @@ float* import_ascii(char* name,int N_lines)
 int main()
 {
     /* Model parameters*/
-    int SIZE_P        = (int)1000;
-	int SIZE_L        = (int)1000;
-	float dP          = (float)10;
-	float dL          = (float)10;
+    int Nx        = (int)1000;
+	int Nz        = (int)1000;
+	float dx          = (float)10;
+	float dz          = (float)10;
 
 	/* Time parameters*/
-	int Nt            = (int)2001;
+	int Nt            = (int)501;
 	float dt          = (float)1.0e-3;
 
 	/* Source parameters*/
-	int sx           = 200;
-	int sz           = 20;
+	int sx           = Nx/2;
+	int sz           = Nz/2;
 	float fcut       = 30;
 
 	/* Receiver position */
 	int rz           = 20;
+	int Nchannel     = Nx;
+	int Nsamples     = Nt;
+
+	int count = 0;
 
     /* Velocity model */
-    float* VP = (float*)malloc(SIZE_P*SIZE_L*sizeof(float));
-    for (int i = 0; i <= SIZE_P*SIZE_L; i++)
+    float* VP = (float*)malloc(Nx*Nz*sizeof(float));
+    for (int index = 0; index <= Nx*Nz; index++)
     {
-        VP[i] = 1500;
+		int i = index / Nz;
+		int j = index - i * Nz;
+		if (j <= 800){
+        	VP[j + Nz*i] = 1500;
+		}
+		else{
+			VP[j + Nz*i] = 1800;
+		}
     }
 	
     /* Source wavelet */
     //float* wavelet = ricker(Nt, 30, Nt*dt/5, dt);	
 
 	/* Source wavelet */
-    float* wavelet = ricker_short(30, dt);	
+    float* wavelet = ricker_short(Nt,30, dt);	
 	float src_samples = ricker_short_Nsample(30, dt);
 	
-	/* Allocate array */
-	float* P1 = (float*)malloc(SIZE_P*SIZE_L*sizeof(float)); //past
-	float* P2 = (float*)malloc(SIZE_P*SIZE_L*sizeof(float)); //present
-	float* P3 = (float*)malloc(SIZE_P*SIZE_L*sizeof(float)); //future
-
-	//export_float32("waveletricker.bin", src_samples, wavelet);
+	/* Allocate arrays */
+	float* P1 = (float*)malloc(Nx*Nz*sizeof(float)); for (int i=0; i < Nx*Nz;i++) P1[i]=0;
+	float* P2 = (float*)malloc(Nx*Nz*sizeof(float)); for (int i=0; i < Nx*Nz;i++) P2[i]=0;
+	float* P3 = (float*)malloc(Nx*Nz*sizeof(float)); for (int i=0; i < Nx*Nz;i++) P3[i]=0;
+	
+	float* Seismogram = (float*)malloc(Nx*Nt*sizeof(float)); for (int i=0; i < Nx*Nt;i++) Seismogram[i]=0;
+	
+	// export_float32("waveletricker.bin", src_samples, wavelet);
 	for (int n=0; n<Nt;n++)
-	{
+	{		
+		/* Injecting the source*/
+		P2[sz + sx*Nz] = P2[sz + sx*Nz] + wavelet[n];
+	
+		/* Solve wave equation */
+		for (int index = 4; index < Nx*Nz-4;index++)
+		{
+			int i = index / Nz;
+			int j = index - i * Nz;
 
+			float p_zz = (-1*P2[(j-2) + Nz*i]+16*P2[(j-1) + Nz*i]-30*P2[j + Nz*i]+16*P2[(j+1) + Nz*i]-1*P2[(j+2) + Nz*i])/(12*dz*dz);
+			float p_xx = (-1*P2[j + Nz*(i-2)]+16*P2[j + Nz*(i-1)]-30*P2[j + Nz*i]+16*P2[j + Nz*(i+1)]-1*P2[j + Nz*(i+2)])/(12*dx*dx);
 
-		printf("time = %f s \n",n*dt);
+			P3[index] = 2*P2[j + Nz*i] - P1[j + Nz*i] + (dt*dt)*(VP[j + Nz*i]*VP[j + Nz*i])*(p_xx + p_zz);
+		}
 
+		/* Registering seismogram*/
+		for (int rx = 0; rx < Nchannel;rx++)
+		{
+			Seismogram[n + rx*Nt] = P3[rz + rx*Nz] ;
+		}
+		/*Update fields*/
+		for (int index = 4; index < Nx*Nz-4;index++)
+		{
+			P1[index] = P2[index];
+			P2[index] = P3[index];			
+		}
+
+		if (n % 500 == 0){
+			count = count + 1;
+			printf("Propagation time = %f. Writting snapshot %d. \n", dt*n,count);
+		}
 	}
+	export_float32("snapshot.bin", Nx*Nz, P3);
+
 }

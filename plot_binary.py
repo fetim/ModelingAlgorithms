@@ -63,10 +63,9 @@ if __name__ =="__main__":
     import matplotlib.pyplot as pl
     import numpy as np
 
-    filename  = 'C/waveletricker.bin'
-    dim1=8001
-    dim2=1
-
+    filename  = 'snapshot.bin'
+    dim1=1000
+    dim2=1000
 
     print('Plotting: '+ filename)
     print('Vertical dimension   = ', dim1)
@@ -75,6 +74,7 @@ if __name__ =="__main__":
     #   plotmatrix(matrix,'jet')
 
     print('Size: ', np.array(matrix))
-    pl.figure()
-    pl.plot(matrix)
-    pl.show()
+    plotmatrix(matrix,'gray')
+#     pl.figure()
+#     pl.plot(matrix)
+#     pl.show()
