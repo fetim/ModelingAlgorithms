@@ -40,7 +40,7 @@ float* ricker_short(int n,float fcut, float dt)
 		aux = pi*(pi*fc*t_src)*(pi*fc*t_src);
 		output[i] = -(2*aux-1)*exp(-aux);
     }
-	printf("Source samples = %d \n", Nt_src);
+	// printf("Source samples = %d \n", Nt_src);
 	return(output);
 }
 
@@ -51,7 +51,7 @@ float ricker_short_Nsample(float fcut, float dt)
 	float t0_src  = 4*sqrt(pi)/fcut;	
 	float Nt_src    = 2*t0_src/dt + 1;
 
-	printf("Source samples = %f \n", Nt_src);
+	// printf("Source samples = %f \n", Nt_src);
 	return(Nt_src);
 }
 
@@ -136,12 +136,12 @@ int main()
 	float dz          = (float)10;
 
 	/* Time parameters*/
-	int Nt            = (int)501;
+	int Nt            = (int)2001;
 	float dt          = (float)1.0e-3;
 
 	/* Source parameters*/
 	int sx           = Nx/2;
-	int sz           = Nz/2;
+	int sz           = 20;
 	float fcut       = 30;
 
 	/* Receiver position */
@@ -157,7 +157,7 @@ int main()
     {
 		int i = index / Nz;
 		int j = index - i * Nz;
-		if (j <= 800){
+		if (j <= 100){
         	VP[j + Nz*i] = 1500;
 		}
 		else{
@@ -214,6 +214,7 @@ int main()
 			printf("Propagation time = %f. Writting snapshot %d. \n", dt*n,count);
 		}
 	}
-	export_float32("snapshot.bin", Nx*Nz, P3);
+	/*Save seismogram in disk*/
+	export_float32("seismogram.bin", Nchannel*Nt, Seismogram);
 
 }
