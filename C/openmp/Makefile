@@ -36,12 +36,12 @@ all: $(EXE)
 # 	$(CC) -o $@ $< $(PARALLEL_FLAG)
 
 %.exe: %.o
-	$(CC) -o $@ $< -lm
+	$(CC) -o $@ $< -lm -fopenmp
 	
 %.o: %.c
 	# @echo ""
 	# @echo "object files generation ..."
-	$(CC) -o $@ $< $(CC_FLAGS)-lm
+	$(CC) -o $@ $< $(CC_FLAGS)-lm -fopenmp
 
 clean:
 	@echo "Removing temporaly files ..."
