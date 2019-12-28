@@ -144,6 +144,7 @@ int main()
 	int Nt            = (int)2001;
 	float dt          = (float)1.0e-3;
 	int Nsnap         = (int)10;
+	int snaptime      = Nt/Nsnap;
 
 	/* Source parameters*/
 	int sx           = Nx/2;
@@ -184,6 +185,8 @@ int main()
 	float* P3 = (float*)malloc(Nx*Nz*sizeof(float)); for (int i=0; i < Nx*Nz;i++) P3[i]=0;
 	
 	float* Seismogram = (float*)malloc(Nx*Nt*sizeof(float)); for (int i=0; i < Nx*Nt;i++) Seismogram[i]=0;
+
+	float* snapshot = (float*)malloc(Nsnap*Nx*Nz*sizeof(float));
 	
 	// export_float32("waveletricker.bin", src_samples, wavelet);
 	for (int n=0; n<Nt;n++)
@@ -191,44 +194,43 @@ int main()
 		/* Injecting the source*/
 		P2[sz + sx*Nz] = P2[sz + sx*Nz] - wavelet[n];
 	
-		// /* Solve wave equation */
-		// for (int index = 4; index < Nx*Nz-4;index++)
-		// {
-		// 	int i = index / Nz;
-		// 	int j = index - i * Nz;
-		// 	if ( (i > ini_x) && (i < end_x) && (j > ini_z) && (j < end_z) )
-		// 	{
-		// 		float p_zz = (-1*P2[(j-2) + Nz*i]+16*P2[(j-1) + Nz*i]-30*P2[j + Nz*i]+16*P2[(j+1) + Nz*i]-1*P2[(j+2) + Nz*i])/(12*dz*dz);
-		// 		float p_xx = (-1*P2[j + Nz*(i-2)]+16*P2[j + Nz*(i-1)]-30*P2[j + Nz*i]+16*P2[j + Nz*(i+1)]-1*P2[j + Nz*(i+2)])/(12*dx*dx);
+		/* Solve wave equation */
+		for (int index = 4; index < Nx*Nz-4;index++)
+		{
+			int i = index / Nz;
+			int j = index - i * Nz;
+			if ( (i > ini_x) && (i < end_x) && (j > ini_z) && (j < end_z) )
+			{
+				float p_zz = (-1*P2[(j-2) + Nz*i]+16*P2[(j-1) + Nz*i]-30*P2[j + Nz*i]+16*P2[(j+1) + Nz*i]-1*P2[(j+2) + Nz*i])/(12*dz*dz);
+				float p_xx = (-1*P2[j + Nz*(i-2)]+16*P2[j + Nz*(i-1)]-30*P2[j + Nz*i]+16*P2[j + Nz*(i+1)]-1*P2[j + Nz*(i+2)])/(12*dx*dx);
 
-		// 		P3[index] = 2*P2[j + Nz*i] - P1[j + Nz*i] + (dt*dt)*(VP[j + Nz*i]*VP[j + Nz*i])*(p_xx + p_zz);	
-		// 	}
-		// }
+				P3[index] = 2*P2[j + Nz*i] - P1[j + Nz*i] + (dt*dt)*(VP[j + Nz*i]*VP[j + Nz*i])*(p_xx + p_zz);	
+			}
+		}
 
 		/* Registering seismogram*/
-		// for (int rx = 0; rx < Nchannel;rx++)
-		// {
-		// 	Seismogram[n + rx*Nt] = P3[rz + rx*Nz] ;
-		// }
-		// /*Update fields*/
-		// for (int index = 4; index < Nx*Nz-4;index++)
-		// {
-		// 	P1[index] = P2[index];
-		// 	P2[index] = P3[index];			
-		// }
-
-		if (n % Nt/Nsnap == 0){
-
+		for (int rx = 0; rx < Nchannel;rx++)
+		{
+			Seismogram[n + rx*Nt] = P3[rz + rx*Nz] ;
+		}
+		/*Update fields*/
+		for (int index = 4; index < Nx*Nz-4;index++)
+		{
+			P1[index] = P2[index];
+			P2[index] = P3[index];			
+		}
+		if (n % snaptime == 0){			
 			
+			// /*Registering Snap shot*/
+			for (int i=0; i < Nx*Nz;i++) snapshot[i + count*(Nx*Nz)]=P3[i]+1.0e-3*VP[i];
 			count = count + 1;
-			printf("Propagation time = %f. Writting snapshot %d. \n", dt*n,count);
+			printf("Propagation time = %f. Registering snapshot %d. \n", dt*n,count);
 		}
 	}
 	/*Save seismogram in disk*/
-	export_float32("seismogram.bin", Nchannel*Nt, Seismogram);
+	export_float32("seismogram.bin", Nchannel*Nt, Seismogram);	
 
-	/*Snap shot*/
-	float* snap = (float*)malloc(Nx*Nz*sizeof(float)); for (int i=0; i < Nx*Nz;i++) snap[i]=P3[i]+1.0e-3*VP[i];
-	export_float32("snapshot.bin", Nx*Nz, snap);
+	/*Writting Snapshot in disk */
+	export_float32("snapshot.bin", Nx*Nz*Nsnap, snapshot);
 
 }
