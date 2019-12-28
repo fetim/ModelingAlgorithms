@@ -24,7 +24,6 @@ $(basename $0) [-h | -v | -c | -e | -r ]
 -h --help    Show all instructions
 -v --version Show the version
 -c           Compiling the modeling program
--eM          Execute seimic modeling program - Matrix
 -eV          Execute seimic modeling program - Vector
 -p           Visualize modeling and show seismogram
 -r           Clean files .bin 
@@ -61,27 +60,14 @@ case "$1" in
 
 ;;
 
--eM) ## run main program
-	start_time=`date +%s`
-
-	./modeling_basic.exe
-	echo ""
-	echo ""
-	echo "-----------------------------------------------"
-	echo "Time of Execution is:   $(expr `date +%s` - $start_time) s"
-	echo "-----------------------------------------------"
-	echo ""
-	echo "To visualize the results you'll need Seismic Unix package"
-	echo "Run $0 -p to plot the results"
-	echo ""
-	exit 0
-
-;;
-
 -eV) ## run main program
 	start_time=`date +%s`
-
-	./modeling_basic_vector.exe
+	echo ""
+	echo ""
+	echo "-----------------------------------------------"
+	echo "Starting basic modeling vector"
+	
+	./SeismicModeling2DVector.exe
 	echo ""
 	echo ""
 	echo "-----------------------------------------------"
@@ -99,10 +85,10 @@ case "$1" in
 	## Visualization
 	
 	#Snapshots
-	xmovie n1=300 n2=400 sleep=1 loop=1 < snapshots.bin &
+	xmovie n1=1000 n2=1000 sleep=1 loop=1 < snapshots.bin &
 
 	#Seismogram
-	ximage n1=1001 < seismogram.bin perc=99 &
+	ximage n1=2001 < seismogram.bin perc=99 &
 
 	exit 0
 ;;

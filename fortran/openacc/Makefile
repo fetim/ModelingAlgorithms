@@ -16,12 +16,13 @@ OBJ=$(F90_SOURCE:.f90=.o)
 EXE=$(F90_SOURCE:.f90=.exe)
 
 # Compiler
-FC=gfortran
+FC=pgfortran
 
 #Flags for compiler
-FC_FLAGS=-c               #\ #flag to create object files
+FC_FLAGS=-c        #\ # flag to create object files
 #        -otherflag		  #\ # use backslash to break lines
-$
+
+PARALLEL_FLAG=-acc -Minfo
 # ‘%’ pega o stem (tronco) do nome
 # $@ pega o nome do target e 
 # $< pega o nome do primeiro pré-requisito
@@ -30,17 +31,19 @@ $
 # Compilation and linking
 #
 all: $(EXE)
-$(EXE): $(OBJ)
-	$(FC) -o $@ $<
-
+%.exe: %.o
+	$(FC) -o $@ $< $(PARALLEL_FLAG)
+	
 %.o: %.f90
-	$(FC) -o $@ $< $(FC_FLAGS)
+	$(FC) -o $@ $< $(FC_FLAGS) $(PARALLEL_FLAG)
 
 clean:
-	rm -rf *.o *.mod $(PROJ_NAME) *~ *.bin
+	@echo "Removing temporaly files ..."
+	rm -rf *.o *.mod *~ *.bin *.exe
 
-# run:
-# 	./$(PROJ_NAME)
+run:
+	@echo "Running program ... "
+	./SeismicModeling2DVector.exe
 
 help:
 	@echo $(F90_SOURCE) $(OBJ) $(EXE)
