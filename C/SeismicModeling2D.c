@@ -217,8 +217,7 @@ int main()
 			P1[index] = P2[index];
 			P2[index] = P3[index];			
 		}
-		if (n % snaptime == 0){			
-			
+		if (n % snaptime == 0){	
 			// /*Registering Snap shot*/
 			for (int i=0; i < Nx*Nz;i++) snapshot[i + count*(Nx*Nz)]=P3[i]+1.0e-3*VP[i];
 			count = count + 1;

@@ -39,8 +39,8 @@ all: $(EXE)
 	$(CC) -o $@ $< -lm -fopenmp
 	
 %.o: %.c
-	# @echo ""
-	# @echo "object files generation ..."
+#	 @echo ""
+#	 @echo "object files generation ..."
 	$(CC) -o $@ $< $(CC_FLAGS)-lm -fopenmp
 
 clean:

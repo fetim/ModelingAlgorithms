@@ -31,13 +31,13 @@ FC_FLAGS=-c        #\ # flag to create object files
 #
 all: $(EXE)
 %.exe: %.o
-	# @echo ""
-	# @echo "main program generation ..."
+#	@echo ""
+#	@echo "main program generation ..."
 	$(FC) -o $@ $< -O3
 	
 %.o: %.f90
-	# @echo ""
-	# @echo "object files generation ..."
+#	@echo ""
+#	@echo "object files generation ..."
 	$(FC) -o $@ $< $(FC_FLAGS) -O3
 
 clean:
@@ -46,7 +46,7 @@ clean:
 
 run:
 	@echo "Running program ... "
-	./sum_openmp.exe
+	./SeismicModeling2DVector.exe
 
 help:
 	@echo $(F90_SOURCE) $(OBJ) $(EXE)

@@ -189,8 +189,9 @@ int main()
 		P2[sz + sx*Nz] = P2[sz + sx*Nz] - wavelet[n];
 	
 		/* Solve wave equation */
-		#pragma omp parallel shared(ini_x,ini_z,end_x,end_z,P1,P2,P3,Nx,Nz)
+		#pragma omp parallel shared(P1,P2,P3,Seismogram,dt,dx,dz,Nx,Nz,ini_x,ini_z,end_x,end_z,Nt,rz)
 		{
+			#pragma omp for nowait
 			for (int index = 4; index < Nx*Nz-4;index++)
 			{
 				int i = index / Nz;
@@ -203,27 +204,22 @@ int main()
 					P3[index] = 2*P2[j + Nz*i] - P1[j + Nz*i] + (dt*dt)*(VP[j + Nz*i]*VP[j + Nz*i])*(p_xx + p_zz);	
 				}
 			}
-		}
 
-		/* Registering seismogram*/
-		#pragma omp parallel shared(P3,Seismogram,Nt,Nz,Nchannel)
-		{
+			/* Registering seismogram*/
+			#pragma omp for nowait
 			for (int rx = 0; rx < Nchannel;rx++)
 			{
 				Seismogram[n + rx*Nt] = P3[rz + rx*Nz] ;
 			}
-		}
-		
-		/*Update fields*/
-		#pragma omp parallel shared(P1,P2,P3,Nx,Nz)
-		{
+					
+			/*Update fields*/			
+			#pragma omp for nowait
 			for (int index = 4; index < Nx*Nz-4;index++)
 			{
 				P1[index] = P2[index];
 				P2[index] = P3[index];			
 			}
 		}
-
 		/*Registering Snap shot*/
 		if (n % snaptime == 0){			
 			for (int i=0; i < Nx*Nz;i++)
