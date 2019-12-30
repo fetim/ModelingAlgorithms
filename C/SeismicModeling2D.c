@@ -4,13 +4,6 @@
 #include <time.h>
 #include <omp.h>
 
-int larger(int a ,int b)
-{
-    if (a>b)
-        return a;
-    return b;
-}
-
 float* ricker(int n, float fcorte, float tlag, float dt)
 {
 	float pi = 4 * atan(1);
@@ -215,15 +208,20 @@ int main()
 	
 	printf("Nt     = %d \n", Nt);
 	printf("dt     = %f \n", dt);	
+
+	/* Snapshots */
+	int reg_snapshot  = 1;
 	int Nsnap         = (int)10;
 	int snaptime      = Nt/Nsnap;
 
 	/* Source parameters*/
-	int sx           = Nx/2;
-	int sz           = 20;
+	int Nshot        = 2;
+
+	int* sx          = (int*)malloc(Nshot);for (int i=0; i < Nshot;i++) sx[i]=5*i+(Nx/2) ;
+	int* sz          = (int*)malloc(Nshot);for (int i=0; i < Nshot;i++) sz[i]=20;
+
 	float fcut       = (float)parameters[6];
-	printf("fcut   = %f \n",fcut);
-	
+	printf("fcut   = %f \n",fcut);	
 
 	/* Receiver position */
 	int rz           = 20;
@@ -267,48 +265,54 @@ int main()
 	float* snapshot = (float*)malloc((Nsnap+1)*Nx*Nz*sizeof(float));
 	
 	// export_float32("waveletricker.bin", src_samples, wavelet);
-	for (int n=0; n<Nt;n++)
-	{		
-		/* Injecting the source*/
-		P2[sz + sx*Nz] = P2[sz + sx*Nz] - wavelet[n];
-	
-		/* Solve wave equation */
-		for (int index = 4; index < Nx*Nz-4;index++)
-		{
-			int i = index / Nz;
-			int j = index - i * Nz;
-			if ( (i > ini_x) && (i < end_x) && (j > ini_z) && (j < end_z) )
+	for (int shot=0; shot<Nshot;shot++)
+	{
+		printf("Running shot %d \n", shot);
+		for (int n=0; n<Nt;n++)
+		{		
+			/* Injecting the source*/
+			P2[sz[shot] + sx[shot]*Nz] = P2[sz[shot] + sx[shot]*Nz] - wavelet[n];
+		
+			/* Solve wave equation */
+			for (int index = 4; index < Nx*Nz-4;index++)
 			{
-				float p_zz = (-1*P2[(j-2) + Nz*i]+16*P2[(j-1) + Nz*i]-30*P2[j + Nz*i]+16*P2[(j+1) + Nz*i]-1*P2[(j+2) + Nz*i])/(12*dz*dz);
-				float p_xx = (-1*P2[j + Nz*(i-2)]+16*P2[j + Nz*(i-1)]-30*P2[j + Nz*i]+16*P2[j + Nz*(i+1)]-1*P2[j + Nz*(i+2)])/(12*dx*dx);
+				int i = index / Nz;
+				int j = index - i * Nz;
+				if ( (i > ini_x) && (i < end_x) && (j > ini_z) && (j < end_z) )
+				{
+					float p_zz = (-1*P2[(j-2) + Nz*i]+16*P2[(j-1) + Nz*i]-30*P2[j + Nz*i]+16*P2[(j+1) + Nz*i]-1*P2[(j+2) + Nz*i])/(12*dz*dz);
+					float p_xx = (-1*P2[j + Nz*(i-2)]+16*P2[j + Nz*(i-1)]-30*P2[j + Nz*i]+16*P2[j + Nz*(i+1)]-1*P2[j + Nz*(i+2)])/(12*dx*dx);
 
-				P3[index] = 2*P2[j + Nz*i] - P1[j + Nz*i] + (dt*dt)*(VP[j + Nz*i]*VP[j + Nz*i])*(p_xx + p_zz);	
+					P3[index] = 2*P2[j + Nz*i] - P1[j + Nz*i] + (dt*dt)*(VP[j + Nz*i]*VP[j + Nz*i])*(p_xx + p_zz);	
+				}
 			}
+			
+			/* Registering seismogram*/
+			for (int rx = 0; rx < Nchannel;rx++)
+			{
+				Seismogram[n + rx*Nt] = P3[rz + rx*Nz] ;
+			}
+			
+			/*Update fields*/
+			for (int index = 4; index < Nx*Nz-4;index++)
+			{
+				P1[index] = P2[index];
+				P2[index] = P3[index];			
+			}
+					
+			/*Registering Snap shot*/		
+				if ((n % snaptime == 0) && reg_snapshot)
+				{	
+					for (int i=0; i < Nx*Nz;i++) snapshot[i + count*(Nx*Nz)]=P3[i]+1.0e-3*VP[i];
+					count = count + 1;
+					printf("Propagation time = %f. Registering snapshot %d. \n", dt*n,count);			
+				}	
 		}
-		
-		/* Registering seismogram*/
-		for (int rx = 0; rx < Nchannel;rx++)
-		{
-			Seismogram[n + rx*Nt] = P3[rz + rx*Nz] ;
-		}
-		
-		/*Update fields*/
-		for (int index = 4; index < Nx*Nz-4;index++)
-		{
-			P1[index] = P2[index];
-			P2[index] = P3[index];			
-		}
-		if (n % snaptime == 0){	
-			// /*Registering Snap shot*/
-			for (int i=0; i < Nx*Nz;i++) snapshot[i + count*(Nx*Nz)]=P3[i]+1.0e-3*VP[i];
-			count = count + 1;
-			printf("Propagation time = %f. Registering snapshot %d. \n", dt*n,count);			
-		}
+		/*Save seismogram in disk*/
+		export_float32("seismogram.bin", Nchannel*Nt, Seismogram);	
 	}
-	/*Save seismogram in disk*/
-	export_float32("seismogram.bin", Nchannel*Nt, Seismogram);	
 
 	/*Writting Snapshot in disk */
-	export_float32("snapshot.bin", Nx*Nz*Nsnap, snapshot);
+	if (reg_snapshot){export_float32("snapshot.bin", Nx*Nz*Nsnap, snapshot);}
 
 }
