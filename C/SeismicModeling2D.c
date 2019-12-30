@@ -32,6 +32,11 @@ float* ricker_short(int n,float fcut, float dt)
 	float t0_src  = 4*sqrt(pi)/fcut;	
     float aux     = 0.0;
 	int Nt_src    = 2*t0_src/dt + 1;
+	if (n<Nt_src)
+	{
+		printf("Error! Nt (%d) < source samples (%d)\n",n,Nt_src);
+		exit(0);
+	}
 
 	float* output = (float*)malloc(n * sizeof(float));for (int i=0; i < n;i++) output[i]=0;
 	for (int i = 0; i < Nt_src; i++)
@@ -109,13 +114,13 @@ float* import_ascii(char* name,int N_lines)
 	fp = fopen (name, "r");  
 
 	if(fp == NULL) {
-      perror("Error opening file");
+      perror("Error opening file\n");
     }
     else{
 		for(int i = 0; i<N_lines;i++)
 		{
 			fscanf(fp, "%s", str);
-			output[i] = atoi(str);
+			output[i] = atof(str);
 			count++;
 		}
 		printf("\n\n");
@@ -125,13 +130,79 @@ float* import_ascii(char* name,int N_lines)
 	}
 }
 
+float max(int N_lines, float* vector) {
+    float value;    
+    value = vector[0];
+    for(int i=0; i<N_lines; i++) {
+            if(value < vector[i]) {
+			value = vector[i];            
+    		}
+	}
+    // printf("Maximum speed in the model = %.0f m/s\n",value);
+    return value;
+}
+
+float min(int N_lines, float* vector) {
+    float value;    
+    value = vector[0];
+    for(int i=0; i<N_lines; i++) {
+            if(value > vector[i]) {
+			value = vector[i];            
+    		}
+	}
+    // printf("Mininum speed in the model = %.0f m/s\n",value);
+    return value;
+}
+
+void check_acoustic_stability(float dt,float dh,int N_lines,float vpmax, float vpmin, float fcut, int T_order, int S_order)
+{		
+	if ((T_order == 2) && (S_order==4))
+	{
+		float alpha  = 5;		
+		float beta   = 4;
+		float dh_max = vpmin/(alpha*fcut);
+		float dt_max = dh_max/(beta*vpmax);		
+			
+		if ( (dt <= dt_max) && (dh <= dh_max ))
+		{
+			printf("Dispersion and stability conditions ... OK!\n");			
+		}
+		else
+		{
+			printf("\nRead time and space parameters\n");
+			printf("Time                        = %f\n", dt);
+			printf("Space                       = %f\n", dh);					
+			
+			printf("\nRecommended time spacing and time interval\n");
+			printf("Time  - Stability limit  - dt < %f\n", dh/(beta*vpmax));
+			printf("Time  - Stability limit  - dt < %f\n", dt_max);
+			printf("Space - Dispersion limit - dh < %f\n", dh_max);		
+			printf("The program will be stopped! \n \n");	
+			exit(0);
+		}
+		
+	}
+	else
+	{
+		printf("Select the right order \n");
+		printf(" Time derivative order =%d Space derivative order = %d, \n", T_order, S_order);
+		
+	}
+}
 int main()
 {
     /* Model parameters*/
-    int Nx        = (int)1000;
-	int Nz        = (int)1000;
-	float dx      = (float)10;
-	float dz      = (float)10;
+	float* parameters = import_ascii("../parameters/2D_acoustic_modeling.dat",7);
+
+    int Nx        = (int)parameters[0];
+	int Nz        = (int)parameters[1];
+	float dx      = (float)parameters[2];
+	float dz      = (float)parameters[3];
+
+	printf("Nx     = %d \n", Nx);
+	printf("Nz     = %d \n", Nz);
+	printf("dx     = %f \n", dx);
+	printf("dz     = %f \n", dz);
 
 	int ini_x   = (int)4;
 	int end_x   = (int)Nx-4;
@@ -139,15 +210,20 @@ int main()
 	int end_z   = (int)Nz-4;
 
 	/* Time parameters*/
-	int Nt            = (int)2001;
-	float dt          = (float)1.0e-3;
+	int Nt            = (int)parameters[4];
+	float dt          = (float)parameters[5];
+	
+	printf("Nt     = %d \n", Nt);
+	printf("dt     = %f \n", dt);	
 	int Nsnap         = (int)10;
 	int snaptime      = Nt/Nsnap;
 
 	/* Source parameters*/
 	int sx           = Nx/2;
 	int sz           = 20;
-	float fcut       = 30;
+	float fcut       = (float)parameters[6];
+	printf("fcut   = %f \n",fcut);
+	
 
 	/* Receiver position */
 	int rz           = 20;
@@ -163,28 +239,32 @@ int main()
 		int i = index / Nz;
 		int j = index - i * Nz;
 		if (j <= 100){
-        	VP[j + Nz*i] = 1500;
+        	VP[j + Nz*i] = 1600;
 		}
 		else{
 			VP[j + Nz*i] = 1800;
 		}
     }
+
+	float vpmax = max(Nx*Nz,VP);
+	float vpmin = min(Nx*Nz,VP);
+	check_acoustic_stability(dt,dz,Nx*Nz,vpmax,vpmin,fcut,2,4);
 	
     /* Source wavelet */
     //float* wavelet = ricker(Nt, 30, Nt*dt/5, dt);	
 
 	/* Source wavelet */
     float* wavelet = ricker_short(Nt,30, dt);	
-	float src_samples = ricker_short_Nsample(30, dt);
+	int src_samples = ricker_short_Nsample(30, dt);
 	
 	/* Allocate arrays */
 	float* P1 = (float*)malloc(Nx*Nz*sizeof(float)); for (int i=0; i < Nx*Nz;i++) P1[i]=0;
 	float* P2 = (float*)malloc(Nx*Nz*sizeof(float)); for (int i=0; i < Nx*Nz;i++) P2[i]=0;
 	float* P3 = (float*)malloc(Nx*Nz*sizeof(float)); for (int i=0; i < Nx*Nz;i++) P3[i]=0;
 	
-	float* Seismogram = (float*)malloc(Nx*Nt*sizeof(float)); for (int i=0; i < Nx*Nt;i++) Seismogram[i]=0;
+	float* Seismogram = (float*)malloc(Nchannel*Nt*sizeof(float)); for (int i=0; i < Nchannel*Nt;i++) Seismogram[i]=0;
 
-	float* snapshot = (float*)malloc(Nsnap*Nx*Nz*sizeof(float));
+	float* snapshot = (float*)malloc((Nsnap+1)*Nx*Nz*sizeof(float));
 	
 	// export_float32("waveletricker.bin", src_samples, wavelet);
 	for (int n=0; n<Nt;n++)
@@ -205,12 +285,13 @@ int main()
 				P3[index] = 2*P2[j + Nz*i] - P1[j + Nz*i] + (dt*dt)*(VP[j + Nz*i]*VP[j + Nz*i])*(p_xx + p_zz);	
 			}
 		}
-
+		
 		/* Registering seismogram*/
 		for (int rx = 0; rx < Nchannel;rx++)
 		{
 			Seismogram[n + rx*Nt] = P3[rz + rx*Nz] ;
 		}
+		
 		/*Update fields*/
 		for (int index = 4; index < Nx*Nz-4;index++)
 		{
@@ -221,7 +302,7 @@ int main()
 			// /*Registering Snap shot*/
 			for (int i=0; i < Nx*Nz;i++) snapshot[i + count*(Nx*Nz)]=P3[i]+1.0e-3*VP[i];
 			count = count + 1;
-			printf("Propagation time = %f. Registering snapshot %d. \n", dt*n,count);
+			printf("Propagation time = %f. Registering snapshot %d. \n", dt*n,count);			
 		}
 	}
 	/*Save seismogram in disk*/

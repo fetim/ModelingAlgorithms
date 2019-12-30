@@ -137,6 +137,9 @@ int main()
 	/* Time parameters*/
 	int Nt            = (int)2001;
 	float dt          = (float)1.0e-3;
+
+	/* Snapshots */
+	int reg_snapshot  = 0;
 	int Nsnap         = (int)10;
 	int snaptime      = Nt/Nsnap;
 
@@ -220,14 +223,18 @@ int main()
 				P2[index] = P3[index];			
 			}
 		}
+
 		/*Registering Snap shot*/
-		if (n % snaptime == 0){			
-			for (int i=0; i < Nx*Nz;i++)
-			{
-				snapshot[i + count*(Nx*Nz)]=P3[i]+1.0e-3*VP[i];
+		if (reg_snapshot)
+		{
+			if (n % snaptime == 0){			
+				for (int i=0; i < Nx*Nz;i++)
+				{
+					snapshot[i + count*(Nx*Nz)]=P3[i]+1.0e-3*VP[i];
+				}
+				count = count + 1;
+				printf("Propagation time = %f. Registering snapshot %d. \n", dt*n,count);
 			}
-			count = count + 1;
-			printf("Propagation time = %f. Registering snapshot %d. \n", dt*n,count);
 		}
 	}
 	
