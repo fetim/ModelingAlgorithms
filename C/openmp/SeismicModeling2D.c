@@ -218,8 +218,11 @@ int main()
 	int snaptime      = Nt/Nsnap;
 
 	/* Source parameters*/
-	int sx           = Nx/2;
-	int sz           = 20;
+int Nshot        = 3;
+
+	int* sx          = (int*)malloc(Nshot*sizeof(int));for (int i=0; i < Nshot;i++) sx[i]=Nx/2 + 5*i  ;
+	int* sz          = (int*)malloc(Nshot*sizeof(int));for (int i=0; i < Nshot;i++) sz[i]=20;
+
 	float fcut       = (float)parameters[6];
 	printf("fcut   = %f \n",fcut);
 
@@ -260,59 +263,66 @@ int main()
 	float* P2 = (float*)malloc(Nx*Nz*sizeof(float)); for (int i=0; i < Nx*Nz;i++) P2[i]=0;
 	float* P3 = (float*)malloc(Nx*Nz*sizeof(float)); for (int i=0; i < Nx*Nz;i++) P3[i]=0;
 	
-	float* Seismogram = (float*)malloc(Nchannel*Nt*sizeof(float)); for (int i=0; i < Nchannel*Nt;i++) Seismogram[i]=0;
+	float* Seismogram = (float*)malloc(Nchannel*Nsamples*Nshot*sizeof(float)); for (int i=0; i < Nchannel*Nsamples;i++) Seismogram[i]=0;
 
 	float* snapshot = (float*)malloc((Nsnap+1)*Nx*Nz*sizeof(float));
 	
 	// export_float32("waveletricker.bin", src_samples, wavelet);
-	for (int n=0; n<Nt;n++)
-	{		
-		/* Injecting the source*/
-		P2[sz + sx*Nz] = P2[sz + sx*Nz] - wavelet[n];
-	
-		/* Solve wave equation */
-		#pragma omp parallel shared(P1,P2,P3,Seismogram,dt,dx,dz,Nx,Nz,ini_x,ini_z,end_x,end_z,Nt,rz)
-		{
-			#pragma omp for
-			for (int index = 4; index < Nx*Nz-4;index++)
+	for (int shot=0; shot<Nshot;shot++)
+	{
+		printf("Running shot %d \n", shot+1);
+		for (int n=0; n<Nt;n++)
+		{		
+			/* Injecting the source*/
+			P2[sz[shot] + sx[shot]*Nz] = P2[sz[shot] + sx[shot]*Nz] - wavelet[n];
+		
+			/* Solve wave equation */
+			#pragma omp parallel shared(P1,P2,P3,Seismogram,dt,dx,dz,Nx,Nz,ini_x,ini_z,end_x,end_z,Nt,rz)
 			{
-				int i = index / Nz;
-				int j = index - i * Nz;
-				if ( (i > ini_x) && (i < end_x) && (j > ini_z) && (j < end_z) )
+				#pragma omp for
+				for (int index = 4; index < Nx*Nz-4;index++)
 				{
-					float p_zz = (-1*P2[(j-2) + Nz*i]+16*P2[(j-1) + Nz*i]-30*P2[j + Nz*i]+16*P2[(j+1) + Nz*i]-1*P2[(j+2) + Nz*i])/(12*dz*dz);
-					float p_xx = (-1*P2[j + Nz*(i-2)]+16*P2[j + Nz*(i-1)]-30*P2[j + Nz*i]+16*P2[j + Nz*(i+1)]-1*P2[j + Nz*(i+2)])/(12*dx*dx);
+					int i = index / Nz;
+					int j = index - i * Nz;
+					if ( (i > ini_x) && (i < end_x) && (j > ini_z) && (j < end_z) )
+					{
+						float p_zz = (-1*P2[(j-2) + Nz*i]+16*P2[(j-1) + Nz*i]-30*P2[j + Nz*i]+16*P2[(j+1) + Nz*i]-1*P2[(j+2) + Nz*i])/(12*dz*dz);
+						float p_xx = (-1*P2[j + Nz*(i-2)]+16*P2[j + Nz*(i-1)]-30*P2[j + Nz*i]+16*P2[j + Nz*(i+1)]-1*P2[j + Nz*(i+2)])/(12*dx*dx);
 
-					P3[index] = 2*P2[j + Nz*i] - P1[j + Nz*i] + (dt*dt)*(VP[j + Nz*i]*VP[j + Nz*i])*(p_xx + p_zz);	
+						P3[index] = 2*P2[j + Nz*i] - P1[j + Nz*i] + (dt*dt)*(VP[j + Nz*i]*VP[j + Nz*i])*(p_xx + p_zz);	
+					}
+				}
+
+				/* Registering seismogram*/
+				#pragma omp for nowait
+				for (int rx = 0; rx < Nchannel;rx++)
+				{
+						Seismogram[n + (rx*Nsamples) + shot*(Nchannel*Nsamples)] = P3[rz + rx*Nz] ;
+				}
+				/* Update fields */			
+				#pragma omp for nowait
+				for (int index = 4; index < Nx*Nz-4;index++)
+				{
+					P1[index] = P2[index];
+					P2[index] = P3[index];			
 				}
 			}
 
-			/* Registering seismogram*/
-			#pragma omp for nowait
-			for (int rx = 0; rx < Nchannel;rx++)
-			{
-				Seismogram[n + rx*Nt] = P3[rz + rx*Nz] ;
-			}
-					
-			/*Update fields*/			
-			#pragma omp for nowait
-			for (int index = 4; index < Nx*Nz-4;index++)
-			{
-				P1[index] = P2[index];
-				P2[index] = P3[index];			
+			/* Registering Snap shot */
+			if ((n % snaptime == 0) && reg_snapshot==shot+1)
+			{			
+				for (int i=0; i < Nx*Nz;i++) snapshot[i + count*(Nx*Nz)]=P3[i]+1.0e-3*VP[i];
+				count = count + 1;
+				printf("Propagation time = %f. Registering snapshot %d. \n", dt*n,count);
 			}
 		}
-
-		/*Registering Snap shot*/
-		if ((n % snaptime == 0) && reg_snapshot)
-		{			
-			for (int i=0; i < Nx*Nz;i++) snapshot[i + count*(Nx*Nz)]=P3[i]+1.0e-3*VP[i];
-			count = count + 1;
-			printf("Propagation time = %f. Registering snapshot %d. \n", dt*n,count);
-		}
+		// Restarting fields // 
+		for (int i=0; i < Nx*Nz;i++) P1[i]=0;
+		for (int i=0; i < Nx*Nz;i++) P2[i]=0;
+		for (int i=0; i < Nx*Nz;i++) P3[i]=0;
 	}
 	/*Save seismogram in disk*/
-	export_float32("seismogram.bin", Nchannel*Nt, Seismogram);	
+	export_float32("seismogram.bin", Nchannel*Nsamples*Nshot, Seismogram);	
 
 	/*Writting Snapshot in disk */
 	if (reg_snapshot){export_float32("snapshot.bin", Nx*Nz*Nsnap, snapshot);}
