@@ -101,8 +101,7 @@ float* import_float32(char* name, int N_POINTS)
 float* import_ascii(char* name,int N_lines)
 {
 	FILE * fp;
-	char str[100];
-	int count = 0;
+	char str[100];	
 	float* output = (float*)malloc(N_lines * sizeof(float));
 	fp = fopen (name, "r");  
 
@@ -113,11 +112,10 @@ float* import_ascii(char* name,int N_lines)
 		for(int i = 0; i<N_lines;i++)
 		{
 			fscanf(fp, "%s", str);
-			output[i] = atof(str);
-			count++;
+			output[i] = atof(str);			
 		}
 		printf("\n\n");
-		printf("Reading %s.  Number of lines = %i \n",name, count);
+		printf("Reading %s.  Number of the line = %i \n",name, N_lines);
 		fclose (fp);
 		return(output);
 	}
@@ -214,13 +212,13 @@ int main()
 	int Nsnap         = (int)10;
 	int snaptime      = Nt/Nsnap;
 
-	/* Source parameters*/
-	int Nshot        = 3;
+/* Source parameters*/
+	int Nshot        = (int)parameters[6];
 
 	int* sx          = (int*)malloc(Nshot*sizeof(int));for (int i=0; i < Nshot;i++) sx[i]=Nx/2 + 5*i  ;
 	int* sz          = (int*)malloc(Nshot*sizeof(int));for (int i=0; i < Nshot;i++) sz[i]=20;
 
-	float fcut       = (float)parameters[6];
+	float fcut       = (float)parameters[7];
 	printf("fcut   = %f \n",fcut);	
 
 	/* Receiver position */
@@ -292,7 +290,7 @@ int main()
 				Seismogram[n + (rx*Nsamples) + shot*(Nchannel*Nsamples)] = P3[rz + rx*Nz] ;
 			}			
 			/* Update fields */
-			for (int index = 4; index < Nx*Nz-4;index++)
+			for (int index = 1; index < Nx*Nz;index++)
 			{
 				P1[index] = P2[index];
 				P2[index] = P3[index];			

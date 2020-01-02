@@ -3,27 +3,39 @@ Program Modeling
 implicit none
 
 integer :: k,i,j
-integer :: count_snap, Nsnap
-integer :: Nx,Nz,Nt
-integer :: sx,sz,rx,rz
+integer :: count_snap,Nsnap
+integer :: Nx,Nz,Nt,Nchannel,Nsamples, Nshot
+integer :: shot, reg_snapshot
 integer :: Nt_src
+integer :: rx, rz
+integer, allocatable,dimension(:) :: sx,sz
 
 integer :: inix,iniz,endx,endz
-real :: h,dt
+real :: dx,dz,dt
 real :: fcut, fcut_aux
 real :: p_xx, p_zz
 real :: t_src,t0_src,src_aux
 real, parameter :: pi = 4.0*ATAN(1.0)
 
-real,allocatable,dimension(:) :: source
+real,allocatable,dimension(:) :: source, parameters
 real,allocatable,dimension(:) :: P1,P2,P3,VP
-real,allocatable,dimension(:) :: Seism
-integer :: index, index_src
+real,allocatable,dimension(:) :: Seism, record
+integer :: index
+
+call importascii("../../parameters/2D_acoustic_modeling.dat",8,parameters)
 
 ! model parameters
-Nx=1000
-Nz=1000
-h=10
+Nx = int(parameters(1))
+Nz = int(parameters(2))
+dx = parameters(3)
+dz = parameters(4)
+
+write(*,*)"Nx = ", Nx
+write(*,*)"Nz = ", Nz
+write(*,*)"dx = ", dx
+write(*,*)"dz = ", dz
+
+Nchannel = Nx
 
 inix=3
 iniz=3
@@ -31,25 +43,36 @@ endx=Nx-2
 endz=Nz-2
 
 ! time parameters
-Nt=2001
-dt=1.0e-3
+Nt = int(parameters(5))
+dt = parameters(6)
+
+write(*,*)"Nt = ", Nt
+write(*,*)"dt = ", dt
+
+Nsamples = Nt
 
 !source parameters
-sx   = Nx/2
-sz   = 20
-fcut = 30
+Nshot = int(parameters(7))
+fcut = parameters(8)
+
+write(*,*)"Nshot = ", Nshot
+write(*,*)"fcut = ", fcut
+
+reg_snapshot = 1
 
 ! receiver depth
 rz=20
 
 ! Allocate arrays
+allocate(sx(Nshot))
+allocate(sz(Nshot))
 allocate(source(Nt))
 allocate(VP(Nx*Nz))
 allocate(P1(Nx*Nz))
 allocate(P2(Nx*Nz))
 allocate(P3(Nx*Nz))
-allocate(Seism(Nt*Nx))
-
+allocate(Seism(Nsamples*Nchannel*Nshot))
+allocate(record(Nsamples))
 
 !Initializate arrays and counters
 count_snap=1
@@ -58,6 +81,13 @@ source = 0.0
 P1 =0.0
 P2 =0.0
 P3 =0.0
+Seism = 0.0
+record = 0.0
+
+do shot=1,Nshot
+    sx(shot)   = Nx/2  + 5*shot
+    sz(shot)   = 20
+end do
 
 ! velocity model
 !$OMP PARALLEL DEFAULT(PRIVATE) SHARED(Nx,Nz,VP)
@@ -71,7 +101,7 @@ P3 =0.0
 
         j = index  - (i-1)*Nz
 
-        if (j<=200) then
+        if (j<=100) then
             VP(index) = 1500
         else
             VP(index) = 1800
@@ -91,82 +121,115 @@ do k=1,Nt_src                          !Nts=nint(tm/dt)+1
     source(k) = (2*src_aux-1)*exp(-src_aux)    
 end do
 
- ! Register in disk
- open(23, file='snapshots.bin', status='replace',&
- &FORM='unformatted',ACCESS='direct', recl=(Nx*Nz*4))
+! Register in disk
+open(23, file='snapshots.bin', status='replace',&
+&FORM='unformatted',ACCESS='direct', recl=(Nx*Nz*4))
 
- open(24, file='seismogram.bin', status='replace',&
- &FORM='unformatted',ACCESS='direct', recl=(Nx*Nt*4))
+open(24, file='seismogram.bin', status='replace',&
+&FORM='unformatted',ACCESS='direct', recl=(Nsamples*Nchannel*Nshot*4))
 
- ! Solve wave equation
+do shot = 1,Nshot
+    print*, "Running shot ...",shot
+    ! Solve wave equation
     do k=1,Nt
-        index_src = sz + Nz*(sx-1)
-        P2(index_src) = P2(index_src) + source(k)
-        !$OMP PARALLEL DEFAULT(PRIVATE) SHARED(P1,P2,P3,VP,Seism,dt,h,Nx,Nz,inix,iniz,endx,endz,Nt,rz)
+
+        P2(sz(shot) + Nz*(sx(shot)-1)) = P2(sz(shot) + Nz*(sx(shot)-1)) - source(k)              
+        !$OMP PARALLEL DEFAULT(PRIVATE) SHARED(P1,P2,P3,VP,record,dt,dx,dz,Nx,Nz,inix,iniz,endx,endz,Nt,rz,Nchannel,Nsamples)
         !$OMP DO
-            ! Vectorized spatial loop    
-            do index=1,Nx*Nz 
-                !4th order in space and 2nd order in time
-                if (mod(index,Nz)==0) then
-                    i=index/Nz
-                else    
-                    i = index/Nz + 1
-                end if
+        ! Vectorized spatial loop    
+        do index=1,Nx*Nz 
+            !4th order in space and 2nd order in time
+            if (mod(index,Nz)==0) then
+                i = index/Nz
+            else    
+                i = index/Nz + 1
+            end if
 
-                j = index  - (i-1)*Nz
+            j = index  - (i-1)*Nz
 
-                if ((i>=inix .and. j>=iniz) .and. (i<endx .and. j< endz)) then            
-                    ! P3(j + Nz*(i-1))=2*P2(j + Nz*(i-1))-P1(j + Nz*(i-1)) + ((VP(j + Nz*(i-1))*VP(j + Nz*(i-1)))*(dt*dt)/(12*h*h)) &
-                    !         &*(-(P2(j + Nz*(i-2-1)) + P2(j-2 + Nz*(i-1)) + P2(j+2 + Nz*(i-1)) + P2(j + Nz*(i+2-1))) + & 
-                    !         &16*(P2(j + Nz*(i-1-1)) + P2(j-1 + Nz*(i-1)) + P2(j+1 + Nz*(i-1)) + P2(j + Nz*(i+1-1))) - &
-                    !         &60*P2(j + Nz*(i-1))) 
-                    
-                    p_zz = (-1*P2(j-2 + Nz*(i-1)) + 16*P2(j-1 + Nz*(i-1)) &
-                    - 30*P2(j + Nz*(i-1)) + 16*P2(j+1 + Nz*(i-1)) - 1*P2(j+2 + Nz*(i-1) ) )/(12*h*h)
+            if ((i>=inix .and. j>=iniz) .and. (i<endx .and. j< endz)) then            
+                p_zz = (-1*P2(j-2 + Nz*(i-1)) + 16*P2(j-1 + Nz*(i-1)) &
+                - 30*P2(j + Nz*(i-1)) + 16*P2(j+1 + Nz*(i-1)) - 1*P2(j+2 + Nz*(i-1) ) )/(12*dz*dz)
 
-                    p_xx = (-1*P2(j + Nz*(i-1-2)) + 16*P2(j + Nz*(i-1-1)) &
-                    - 30*P2(j + Nz*(i-1)) + 16*P2(j + Nz*(i-1+1)) - 1*P2(j + Nz*(i-1+2) ) ) / (12*h*h)
-    
-                    P3(index) = 2*P2(j + Nz*(i-1)) - P1(j + Nz*(i-1)) &
-                    + (dt*dt)*(VP(j + Nz*(i-1))*VP(j + Nz*(i-1)))*(p_xx + p_zz)
-                end if
-            end do            
+                p_xx = (-1*P2(j + Nz*(i-1-2)) + 16*P2(j + Nz*(i-1-1)) &
+                - 30*P2(j + Nz*(i-1)) + 16*P2(j + Nz*(i-1+1)) - 1*P2(j + Nz*(i-1+2) ) ) / (12*dx*dx)
+
+                P3(index) = 2*P2(j + Nz*(i-1)) - P1(j + Nz*(i-1)) &
+                + (dt*dt)*(VP(j + Nz*(i-1))*VP(j + Nz*(i-1)))*(p_xx + p_zz)
+
+            end if
+        end do            
         !$OMP END DO NOWAIT
-        
-        ! update fields                                
-        !$OMP DO
-            do index=1,Nx*Nz
-                P1(index)=P2(index)
-                P2(index)=P3(index)    
-            end do
-        !$OMP END DO NOWAIT
-        
+
         !Storage Seismogram        
         !$OMP DO
-            do rx=1,Nx
-                Seism(k + (rx-1)*Nt) = P3(rz + Nz*(rx-1))
-            end do
-        !$OMP END DO NOWAIT
+        do rx=1,Nchannel                               
+            record(rx) = P3(rz + Nz*(rx-1))                
+        end do
+        !$OMP END DO NOWAIT      
 
-        !$OMP END PARALLEL
+        ! update fields                                
+        !$OMP DO
+        do index=1,Nx*Nz
+            P1(index)=P2(index)
+            P2(index)=P3(index)    
+        end do
+        !$OMP END DO NOWAIT       
+
+        !$OMP END PARALLEL 
+
+        !Storage Seismogram        
+        do rx=1,Nchannel                               
+            Seism(k + (rx-1)*Nsamples + (shot-1)*(Nchannel*Nsamples) ) = record(rx)
+        end do
 
         !Register snapshots
-        !$OMP MASTER
-            if (mod((k-1),Nt/Nsnap) == 0) then
-                print*, "Propagation time =", (k-1)*dt, "Registering snapshot", count_snap
-                write(23,rec=count_snap) ((P3(j + Nz*(i-1)) + 1.0e-3*VP(j + Nz*(i-1)),j=1,Nz),i=1,Nx)
-                count_snap=count_snap+1
-            end if     
-        !$OMP END MASTER
+        if ((mod((k-1),Nt/Nsnap) == 0) .and. (reg_snapshot == shot) ) then
+            print*, "Propagation time =", (k-1)*dt, "Registering snapshot", count_snap
+            write(23,rec=count_snap) ((P3(j + Nz*(i-1)) + 1.0e-3*VP(j + Nz*(i-1)),j=1,Nz),i=1,Nx)
+            count_snap=count_snap+1
+        end if     
 
-       
     end do
 
-    !Register Seismogram
-    write(24,rec=1) (Seism(k),k=1,Nt*Nx)
+    ! Restarting fields
+    P1 =0.0
+    P2 =0.0
+    P3 =0.0
+
+end do
+!Register Seismogram
+write(24,rec=1) (Seism(k),k=1,Nsamples*Nchannel*Nshot)
 
 !close files
 close(23)
 close(24)
+
+contains
+
+SUBROUTINE importascii(name,N_lines,output)    
+    IMPLICIT NONE
+    LOGICAL                                        :: checkfile
+    INTEGER                                        :: k
+    CHARACTER(len=*),INTENT(in)                    :: name
+    INTEGER,INTENT(in)                             :: N_lines
+    REAL,DIMENSION(:),ALLOCATABLE,INTENT(out)      :: output
+
+    write(*,*) "Reading ", name, " Number of lines = ", N_lines
+    INQUIRE(file=name, exist=checkfile) !verify if wavelet file exist
+    if (checkfile) then            
+        ALLOCATE(output(N_lines))        
+        open(78, file=name, status='unknown', form='formatted')               
+        do k=1,N_lines
+            read(78,*)output(k)
+        end do
+        close(78)
+    else
+        print*, 'Error opening file'           
+        stop
+    end if
+
+    RETURN
+END SUBROUTINE importascii
 
 end program

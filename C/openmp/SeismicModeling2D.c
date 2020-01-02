@@ -218,12 +218,12 @@ int main()
 	int snaptime      = Nt/Nsnap;
 
 	/* Source parameters*/
-int Nshot        = 3;
+	int Nshot        = (int)parameters[6];;
 
 	int* sx          = (int*)malloc(Nshot*sizeof(int));for (int i=0; i < Nshot;i++) sx[i]=Nx/2 + 5*i  ;
 	int* sz          = (int*)malloc(Nshot*sizeof(int));for (int i=0; i < Nshot;i++) sz[i]=20;
 
-	float fcut       = (float)parameters[6];
+	float fcut       = (float)parameters[7];
 	printf("fcut   = %f \n",fcut);
 
 	/* Receiver position */
