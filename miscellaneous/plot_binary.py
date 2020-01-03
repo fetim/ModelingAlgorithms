@@ -53,28 +53,57 @@ def plotmatrix(matrix,colormap):
 
       pl.colorbar(im, cax=cax)
       #pl.draw() # drawing figure to be plotted later 
-      pl.show()
+      #pl.show()
 
 
 if __name__ =="__main__":
-    '''
-    Ambiente para teste das funções criadas      
-    '''
-    import matplotlib.pyplot as pl
-    import numpy as np
+      '''
+      Ambiente para teste das funções criadas      
+      '''
+      import matplotlib.pyplot as pl
+      import numpy as np
 
-    filename  = 'snapshot.bin'
-    dim1=1000
-    dim2=1000
+      import numpy as np
 
-    print('Plotting: '+ filename)
-    print('Vertical dimension   = ', dim1)
-    print('Horizontal dimension = ', dim2)
-    matrix = readbinaryfile(dim1,dim2,filename)
-    #   plotmatrix(matrix,'jet')
+      f = open('../parameters/2D_acoustic_modeling.dat', 'r') # 'r' = read
+      parameters = np.genfromtxt(f,delimiter='')
 
-    print('Size: ', np.array(matrix))
-    plotmatrix(matrix,'gray')
-#     pl.figure()
-#     pl.plot(matrix)
-#     pl.show()
+      Nx     = int(parameters[0])
+      Nz     = int(parameters[1])
+      dx     = parameters[2]
+      dz     = parameters[3]
+      Nt     = int(parameters[4])
+      dt     = parameters[5]
+      Nshot  = int(parameters[6])
+      fcut   = parameters[7]
+
+      print("Parameters: ")
+      print("Nx    = ",Nx  )
+      print("Nz    = ",Nz  )
+      print("dx    = ",dx  )
+      print("dz    = ",dz  )
+      print("Nt    = ",Nt  )
+      print("dt    = ",dt  )
+      print("Nshot = ",Nshot)
+      print("fcut  = ",fcut)
+
+      Nsnapshot = 10
+      snap      = 7
+
+      # inputname  = '../C/snapshots.bin'
+      # snapshot_A = readbinaryfile(Nz,Nx*Nsnapshot,inputname)
+      # plotmatrix(snapshot_A[:,snap*Nx:(snap+1)*Nx],'gray')
+      
+      # inputname  = '../fortran/snapshots.bin'
+      # snapshot_B = readbinaryfile(Nz,Nx*Nsnapshot,inputname)
+      # plotmatrix(snapshot_B[:,snap*Nx:(snap+1)*Nx],'gray')
+
+      inputname  = '../C/openmp/seismogram.bin'
+      seismogram_A = readbinaryfile(Nt,Nx*Nshot,inputname)
+      plotmatrix(seismogram_A[:,:],'gray')
+
+      inputname  = '../fortran/openmp/seismogram.bin'
+      seismogram_B = readbinaryfile(Nt,Nx*Nshot,inputname)
+      plotmatrix(seismogram_B[:,:],'gray')
+
+      pl.show()

@@ -13,6 +13,7 @@ integer, allocatable,dimension(:) :: sx,sz
 integer :: inix,iniz,endx,endz
 real :: dx,dz,dt
 real :: fcut, fcut_aux
+real :: vpmax,vpmin
 real :: p_xx, p_zz
 real :: t_src,t0_src,src_aux
 real, parameter :: pi = 4.0*ATAN(1.0)
@@ -39,8 +40,8 @@ Nchannel = Nx
 
 inix=3
 iniz=3
-endx=Nx-2
-endz=Nz-2
+endx=Nx-1
+endz=Nz-1
 
 ! time parameters
 Nt = int(parameters(5))
@@ -61,7 +62,7 @@ write(*,*)"fcut = ", fcut
 reg_snapshot = 1
 
 ! receiver depth
-rz=20
+rz=20+1
 
 ! Allocate arrays
 allocate(sx(Nshot))
@@ -85,8 +86,8 @@ Seism = 0.0
 record = 0.0
 
 do shot=1,Nshot
-    sx(shot)   = Nx/2  + 5*shot
-    sz(shot)   = 20
+    sx(shot)   = Nx/2  + 5*(shot-1) + 1
+    sz(shot)   = 20 + 1
 end do
 
 ! velocity model
@@ -101,8 +102,8 @@ end do
 
         j = index  - (i-1)*Nz
 
-        if (j<=100) then
-            VP(index) = 1500
+        if (j<=100+1) then
+            VP(index) = 1600
         else
             VP(index) = 1800
         end if
@@ -111,14 +112,19 @@ end do
 !$OMP END DO
 !$OMP END PARALLEL
 
+vpmax = maxval(VP)
+vpmin = minval(VP)
+
+call check_acoustic_stability(dt, dz, vpmax, vpmin, fcut, 2, 4) 
+
 ! Create Source Ricker
-fcut_aux       = fcut/(3.*sqrt(pi))        ! Ajust to cut of gaussian function
-t0_src   = 4*sqrt(pi)/fcut                 ! Initial time source
-Nt_src = nint(2*t0_src/dt) + 1           ! Number of elements of the source
-do k=1,Nt_src                          !Nts=nint(tm/dt)+1
+fcut_aux = fcut/(3.*sqrt(pi))          ! Ajust to cut of gaussian function
+t0_src   = 4*sqrt(pi)/fcut             ! Initial time source
+Nt_src   = nint(2*t0_src/dt) + 1       ! Number of elements of the source
+do k=1,Nt_src                          ! Nts=nint(tm/dt)+1
     t_src=(k-1)*dt-t0_src                    !Delay Time
     src_aux=pi*(pi*fcut_aux*t_src)*(pi*fcut_aux*t_src)
-    source(k) = (2*src_aux-1)*exp(-src_aux)    
+    source(k) = -(2*src_aux-1)*exp(-src_aux)    
 end do
 
 ! Register in disk
@@ -147,7 +153,7 @@ do shot = 1,Nshot
 
             j = index  - (i-1)*Nz
 
-            if ((i>=inix .and. j>=iniz) .and. (i<endx .and. j< endz)) then            
+            if ((i>=inix .and. j>=iniz) .and. (i<=endx .and. j<=endz)) then            
                 p_zz = (-1*P2(j-2 + Nz*(i-1)) + 16*P2(j-1 + Nz*(i-1)) &
                 - 30*P2(j + Nz*(i-1)) + 16*P2(j+1 + Nz*(i-1)) - 1*P2(j+2 + Nz*(i-1) ) )/(12*dz*dz)
 
@@ -231,5 +237,43 @@ SUBROUTINE importascii(name,N_lines,output)
 
     RETURN
 END SUBROUTINE importascii
+
+SUBROUTINE check_acoustic_stability(dt, dh, vpmax, vpmin, fcut, T_order, S_order)
+    
+    INTEGER, INTENT(IN) :: T_order, S_order
+    REAL,    INTENT(IN) :: dt,dh,vpmax,vpmin,fcut
+
+    REAL                :: alpha, beta, dh_max,dt_max
+
+
+    if ((T_order == 2) .and. (S_order==4)) then	
+        alpha  = 5
+        beta   = 4
+        dh_max = vpmin/(alpha*fcut)
+        dt_max = dh_max/(beta*vpmax)
+
+        if ( (dt <= dt_max) .and. (dh <= dh_max )) then
+
+            print*, "Dispersion and stability conditions ... OK!"
+
+        else
+            print*,"Read time and space parameters"
+            print*,"Time                        = ", dt
+            print*,"Space                       = ", dh			
+
+            print*,"Recommended time spacing and time interval"
+            print*,"Time  - Stability limit  - dt < ", dh/(beta*vpmax)
+            print*,"Time  - Stability limit  - dt < ", dt_max
+            print*,"Space - Dispersion limit - dh < ", dh_max
+            print*,"The program will be stopped!  "
+            stop
+        end if
+    else	
+        print*,"Select the right order "
+        print*," Time derivative order = Space derivative order = , ", T_order, S_order
+        stop
+    end if
+
+END SUBROUTINE check_acoustic_stability
 
 end program

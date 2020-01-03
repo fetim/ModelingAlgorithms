@@ -105,7 +105,6 @@ float* import_ascii(char* name,int N_lines)
 {
 	FILE * fp;
 	char str[100];
-	int count = 0;
 	float* output = (float*)malloc(N_lines * sizeof(float));
 	fp = fopen (name, "r");  
 
@@ -116,11 +115,10 @@ float* import_ascii(char* name,int N_lines)
 		for(int i = 0; i<N_lines;i++)
 		{
 			fscanf(fp, "%s", str);
-			output[i] = atof(str);
-			count++;
+			output[i] = atof(str);			
 		}
 		printf("\n\n");
-		printf("Reading %s.  Number of lines = %i \n",name, count);
+		printf("Reading %s.  Number of lines = %i \n",name, N_lines);
 		fclose (fp);
 		return(output);
 	}
@@ -150,7 +148,7 @@ float min(int N_lines, float* vector) {
     return value;
 }
 
-void check_acoustic_stability(float dt,float dh,int N_lines,float vpmax, float vpmin, float fcut, int T_order, int S_order)
+void check_acoustic_stability(float dt,float dh,float vpmax, float vpmin, float fcut, int T_order, int S_order)
 {		
 	if ((T_order == 2) && (S_order==4))
 	{
@@ -182,7 +180,7 @@ void check_acoustic_stability(float dt,float dh,int N_lines,float vpmax, float v
 	{
 		printf("Select the right order \n");
 		printf(" Time derivative order =%d Space derivative order = %d, \n", T_order, S_order);
-		
+		exit(0);
 	}
 }
 int main()
@@ -200,10 +198,10 @@ int main()
 	printf("dx     = %f \n", dx);
 	printf("dz     = %f \n", dz);
 
-	int ini_x   = (int)4;
-	int end_x   = (int)Nx-4;
-	int ini_z   = (int)4;
-	int end_z   = (int)Nz-4;
+	int ini_x   = (int)2;
+	int end_x   = (int)Nx-2;
+	int ini_z   = (int)2;
+	int end_z   = (int)Nz-2;
 
 	/* Time parameters*/
 	int Nt            = (int)parameters[4];
@@ -218,7 +216,7 @@ int main()
 	int snaptime      = Nt/Nsnap;
 
 	/* Source parameters*/
-	int Nshot        = (int)parameters[6];;
+	int Nshot        = (int)parameters[6];
 
 	int* sx          = (int*)malloc(Nshot*sizeof(int));for (int i=0; i < Nshot;i++) sx[i]=Nx/2 + 5*i  ;
 	int* sz          = (int*)malloc(Nshot*sizeof(int));for (int i=0; i < Nshot;i++) sz[i]=20;
@@ -249,7 +247,7 @@ int main()
 	
 	float vpmax = max(Nx*Nz,VP);
 	float vpmin = min(Nx*Nz,VP);
-	check_acoustic_stability(dt,dz,Nx*Nz,vpmax,vpmin,fcut,2,4);
+	check_acoustic_stability(dt,dz,vpmax,vpmin,fcut,2,4);
 
     /* Source wavelet */
     //float* wavelet = ricker(Nt, 30, Nt*dt/5, dt);	
@@ -284,7 +282,7 @@ int main()
 				{
 					int i = index / Nz;
 					int j = index - i * Nz;
-					if ( (i > ini_x) && (i < end_x) && (j > ini_z) && (j < end_z) )
+					if ( (i >= ini_x) && (i <= end_x) && (j >= ini_z) && (j <= end_z) )
 					{
 						float p_zz = (-1*P2[(j-2) + Nz*i]+16*P2[(j-1) + Nz*i]-30*P2[j + Nz*i]+16*P2[(j+1) + Nz*i]-1*P2[(j+2) + Nz*i])/(12*dz*dz);
 						float p_xx = (-1*P2[j + Nz*(i-2)]+16*P2[j + Nz*(i-1)]-30*P2[j + Nz*i]+16*P2[j + Nz*(i+1)]-1*P2[j + Nz*(i+2)])/(12*dx*dx);
@@ -292,8 +290,7 @@ int main()
 						P3[index] = 2*P2[j + Nz*i] - P1[j + Nz*i] + (dt*dt)*(VP[j + Nz*i]*VP[j + Nz*i])*(p_xx + p_zz);	
 					}
 				}
-
-				/* Registering seismogram*/
+				/* Registering seismogram */
 				#pragma omp for nowait
 				for (int rx = 0; rx < Nchannel;rx++)
 				{
@@ -301,7 +298,7 @@ int main()
 				}
 				/* Update fields */			
 				#pragma omp for nowait
-				for (int index = 4; index < Nx*Nz-4;index++)
+				for (int index = 1; index < Nx*Nz;index++)
 				{
 					P1[index] = P2[index];
 					P2[index] = P3[index];			
@@ -313,7 +310,7 @@ int main()
 			{			
 				for (int i=0; i < Nx*Nz;i++) snapshot[i + count*(Nx*Nz)]=P3[i]+1.0e-3*VP[i];
 				count = count + 1;
-				printf("Propagation time = %f. Registering snapshot %d. \n", dt*n,count);
+				printf("Propagation time = %f  Registering snapshot %d \n", dt*n,count);			
 			}
 		}
 		// Restarting fields // 
@@ -325,6 +322,6 @@ int main()
 	export_float32("seismogram.bin", Nchannel*Nsamples*Nshot, Seismogram);	
 
 	/*Writting Snapshot in disk */
-	if (reg_snapshot){export_float32("snapshot.bin", Nx*Nz*Nsnap, snapshot);}
+	if (reg_snapshot){export_float32("snapshots.bin", Nx*Nz*Nsnap, snapshot);}
 
 }
