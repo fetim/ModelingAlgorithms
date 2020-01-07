@@ -7,7 +7,7 @@ Program Modeling
     integer :: shot, reg_snapshot
     integer :: Nt_src
     integer :: rx, rz
-    integer :: sx,sz
+    integer, allocatable,dimension(:) :: sx,sz
         
     integer :: inix,iniz,endx,endz
     real :: dx,dz,dt
@@ -19,7 +19,7 @@ Program Modeling
     
     real,allocatable,dimension(:) :: source, parameters
     real,allocatable,dimension(:) :: P1,P2,P3,VP
-    real,allocatable,dimension(:) :: Seism, record, snapshot
+    real,allocatable,dimension(:) :: Seism, record
     integer :: index, index_src
        
      call importascii("../../parameters/2D_acoustic_modeling.dat",8,parameters)
@@ -64,16 +64,16 @@ Program Modeling
     rz=20+1
         
     ! Allocate arrays
+    allocate(sx(Nshot))
+    allocate(sz(Nshot))
     allocate(source(Nt))
     allocate(VP(Nx*Nz))
     allocate(P1(Nx*Nz))
     allocate(P2(Nx*Nz))
-    allocate(P3(Nx*Nz))
-    allocate(snapshot(Nx*Nz))
+    allocate(P3(Nx*Nz))    
     allocate(Seism(Nsamples*Nchannel*Nshot))
     allocate(record(Nsamples))
 
-    
     !Initializate arrays and counters
     count_snap=1
     Nsnap = 10
@@ -84,9 +84,10 @@ Program Modeling
     Seism = 0.0
     record = 0.0    
     
-    !source parameters
-    sx   = 200  
-    sz   = 20  
+    do shot=1,Nshot
+        sx(shot)   = Nx/2  + 5*(shot-1) + 1
+        sz(shot)   = 20 + 1
+    end do
 
     ! velocity model
     do index=1,Nx*Nz
@@ -105,10 +106,10 @@ Program Modeling
         end if
 
     end do
-vpmax = maxval(VP)
-vpmin = minval(VP)
+    vpmax = maxval(VP)
+    vpmin = minval(VP)
 
-call check_acoustic_stability(dt, dz, vpmax, vpmin, fcut, 2, 4)
+    call check_acoustic_stability(dt, dz, vpmax, vpmin, fcut, 2, 4)
     ! Create Source Ricker
     fcut_aux = fcut/(3.*sqrt(pi))          ! Ajust to cut of gaussian function
     t0_src   = 4*sqrt(pi)/fcut             ! Initial time source
@@ -126,64 +127,75 @@ call check_acoustic_stability(dt, dz, vpmax, vpmin, fcut, 2, 4)
      open(24, file='seismogram.bin', status='replace',&
      &FORM='unformatted',ACCESS='direct', recl=(Nsamples*Nchannel*Nshot*4))
     
-     shot = 1
-     !$acc enter data copyin(P1,P2,P3,VP,source) create(record,snapshot)
-     ! Solve wave equation
+     do shot = 1,Nshot
+        print*, "Running shot ...",shot
+        !$acc enter data copyin(P1,P2,P3,VP,source,sx,sz) create(record)
+        ! Solve wave equation
         do k=1,Nt
-            index_src = sz + Nz*(sx-1)        
+            index_src = sz(shot) + Nz*(sx(shot)-1)        
             !$acc kernels
                 P2(index_src) = P2(index_src) + source(k)
             !$acc end kernels
     
             !$acc parallel loop present(P1,P2,P3,VP)        
-                ! Vectorized spatial loop    
-                do index=1,Nx*Nz 
-                    !4th order in space and 2nd order in time
-                    if (mod(index,Nz)==0) then
-                        i = index/Nz
-                    else    
-                        i = index/Nz + 1
-                    end if
-    
-                    j = index  - (i-1)*Nz
-    
-                    if ((i>=inix .and. j>=iniz) .and. (i<=endx .and. j<=endz)) then            
-                        p_zz = (-1*P2(j-2 + Nz*(i-1)) + 16*P2(j-1 + Nz*(i-1)) &
-                        - 30*P2(j + Nz*(i-1)) + 16*P2(j+1 + Nz*(i-1)) - 1*P2(j+2 + Nz*(i-1) ) )/(12*dz*dz)
-        
-                        p_xx = (-1*P2(j + Nz*(i-1-2)) + 16*P2(j + Nz*(i-1-1)) &
-                        - 30*P2(j + Nz*(i-1)) + 16*P2(j + Nz*(i-1+1)) - 1*P2(j + Nz*(i-1+2) ) ) / (12*dx*dx)
-        
-                        P3(index) = 2*P2(j + Nz*(i-1)) - P1(j + Nz*(i-1)) &
-                        + (dt*dt)*(VP(j + Nz*(i-1))*VP(j + Nz*(i-1)))*(p_xx + p_zz)                        
-                    end if
-                end do
-            
-        !Storage Seismogram        
-        !$acc parallel loop present(record,P3)
-        do rx=1,Nchannel                               
-            record(rx) = P3(rz + Nz*(rx-1))                
-        end do
+            ! Vectorized spatial loop    
+            do index=1,Nx*Nz 
+                !4th order in space and 2nd order in time
+                if (mod(index,Nz)==0) then
+                    i = index/Nz
+                else    
+                    i = index/Nz + 1
+                end if
 
-        ! update fields
-        !$acc parallel loop present(P1,P2,P3,snapshot)
+                j = index  - (i-1)*Nz
+
+                if ((i>=inix .and. j>=iniz) .and. (i<=endx .and. j<=endz)) then            
+                    p_zz = (-1*P2(j-2 + Nz*(i-1)) + 16*P2(j-1 + Nz*(i-1)) &
+                    - 30*P2(j + Nz*(i-1)) + 16*P2(j+1 + Nz*(i-1)) - 1*P2(j+2 + Nz*(i-1) ) )/(12*dz*dz)
+    
+                    p_xx = (-1*P2(j + Nz*(i-1-2)) + 16*P2(j + Nz*(i-1-1)) &
+                    - 30*P2(j + Nz*(i-1)) + 16*P2(j + Nz*(i-1+1)) - 1*P2(j + Nz*(i-1+2) ) ) / (12*dx*dx)
+    
+                    P3(index) = 2*P2(j + Nz*(i-1)) - P1(j + Nz*(i-1)) &
+                    + (dt*dt)*(VP(j + Nz*(i-1))*VP(j + Nz*(i-1)))*(p_xx + p_zz)                        
+                end if
+            end do
+            
+            !Storage Seismogram        
+            !$acc parallel loop present(record,P3)
+            do rx=1,Nchannel                               
+                record(rx) = P3(rz + Nz*(rx-1))                
+            end do
+
+            ! update fields
+            !$acc parallel loop present(P1,P2,P3)
+            do index=1,Nx*Nz
+                P1(index)=P2(index)
+                P2(index)=P3(index)                
+            end do            
+
+            !$acc update self(record)
+            do rx=1,Nx
+                Seism(k + (rx-1)*Nsamples + (shot-1)*(Nchannel*Nsamples)) = record(rx)
+            end do        
+            
+        end do
+        
+        !Restart field
+         !$acc parallel loop present(P1,P2,P3)
         do index=1,Nx*Nz
-            P1(index)=P2(index)
-            P2(index)=P3(index)
-            snapshot(index) = P3(index)
-        end do            
-
-        !$acc update self(record)
-        do rx=1,Nx
-            Seism(k + (rx-1)*Nsamples + (shot-1)*(Nchannel*Nsamples)) = record(rx)
-        end do        
-            
+            P1(index)=0.0
+            P2(index)=0.0
+            P3(index)=0.0
         end do
-        !$acc exit data copyout(P3)    
-        !Register Seismogram
+        
+        
+    end do    
+    !$acc exit data copyout(P3)    
+    !Register Seismogram
 
-        write(23,rec=1) (P3(index),index=1,Nx*Nz)
-        write(24,rec=1) (Seism(k),k=1,Nt*Nx)
+    write(23,rec=1) (P3(index),index=1,Nx*Nz)
+    write(24,rec=1) (Seism(k),k=1,Nsamples*Nchannel*Nshot)
         
     
     !close files
