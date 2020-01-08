@@ -19,7 +19,7 @@ Program Modeling
     
     real,allocatable,dimension(:) :: source, parameters
     real,allocatable,dimension(:) :: P1,P2,P3,VP
-    real,allocatable,dimension(:) :: Seism, record
+    real,allocatable,dimension(:) :: Seism, record, snapshot
     integer :: index, index_src
        
      call importascii("../../parameters/2D_acoustic_modeling.dat",8,parameters)
@@ -71,6 +71,7 @@ Program Modeling
     allocate(P1(Nx*Nz))
     allocate(P2(Nx*Nz))
     allocate(P3(Nx*Nz))    
+    allocate(snapshot(Nx*Nz))    
     allocate(Seism(Nsamples*Nchannel*Nshot))
     allocate(record(Nsamples))
 
@@ -81,8 +82,10 @@ Program Modeling
     P1 =0.0
     P2 =0.0
     P3 =0.0
+    snapshot = 0.0
     Seism = 0.0
     record = 0.0    
+    
     
     do shot=1,Nshot
         sx(shot)   = Nx/2  + 5*(shot-1) + 1
@@ -167,17 +170,26 @@ Program Modeling
                 record(rx) = P3(rz + Nz*(rx-1))                
             end do
 
+            
             ! update fields
             !$acc parallel loop present(P1,P2,P3)
             do index=1,Nx*Nz
                 P1(index)=P2(index)
                 P2(index)=P3(index)                
-            end do            
+            end do                    
 
             !$acc update self(record)
             do rx=1,Nx
                 Seism(k + (rx-1)*Nsamples + (shot-1)*(Nchannel*Nsamples)) = record(rx)
-            end do        
+            end do
+
+            !Register snapshots
+            !$acc update self(P3)
+            if ((mod((k-1),Nt/Nsnap) == 0) .and. (reg_snapshot == shot) ) then
+                print*, "Propagation time =", (k-1)*dt, "Registering snapshot", count_snap
+                write(23,rec=count_snap) ((P3(j + Nz*(i-1)) + 1.0e-3*VP(j + Nz*(i-1)),j=1,Nz),i=1,Nx)
+                count_snap=count_snap+1
+            end if     
             
         end do
         
@@ -193,8 +205,6 @@ Program Modeling
     end do    
     !$acc exit data copyout(P3)    
     !Register Seismogram
-
-    write(23,rec=1) (P3(index),index=1,Nx*Nz)
     write(24,rec=1) (Seism(k),k=1,Nsamples*Nchannel*Nshot)
         
     

@@ -32,8 +32,8 @@ print(command)
 os.system(command)
 
 # Check snapshot with seismic unix
-command = " ximage n1=" + str(Nz) + " < " + folder + "snapshots.bin &"
-# command = " xmovie n1=" + str(Nz) + " n2=" + str(Nx) + " sleep=1 loop=2 < " + folder + "snapshots.bin &"
+#command = " ximage n1=" + str(Nz) + " < " + folder + "snapshots.bin &"
+command = " xmovie n1=" + str(Nz) + " n2=" + str(Nx) + " sleep=1 loop=2 < " + folder + "snapshots.bin &"
 
 print(command)
 os.system(command)
