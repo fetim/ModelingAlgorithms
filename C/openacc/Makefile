@@ -22,6 +22,8 @@ CC=pgcc
 CC_FLAGS=-c       #\ # flag to create object files
 #        -otherflag		  #\ # use backslash to break lines
 
+PARALLEL_FLAG=-acc #-Minfo
+
 # ‘%’ pega o stem (tronco) do nome
 # $@ pega o nome do target e 
 # $< pega o nome do primeiro pré-requisito
@@ -36,12 +38,12 @@ all: $(EXE)
 # 	$(CC) -o $@ $< $(PARALLEL_FLAG)
 
 %.exe: %.o
-	$(CC) -o $@ $< -lm -fopenmp
+	$(CC) -o $@ $< -lm $(PARALLEL_FLAG)
 	
 %.o: %.c
 #	 @echo ""
 #	 @echo "object files generation ..."
-	$(CC) -o $@ $< $(CC_FLAGS)-lm -fopenmp
+	$(CC) -o $@ $< $(CC_FLAGS) $(PARALLEL_FLAG) -lm 
 
 clean:
 	@echo "Removing temporaly files ..."

@@ -269,14 +269,16 @@ int main()
 	for (int shot=0; shot<Nshot;shot++)
 	{
 		printf("Running shot %d \n", shot+1);
+		#pragma acc enter data copyin(P1,P2,P3,VP)
 		for (int n=0; n<Nt;n++)
 		{		
 			/* Injecting the source*/
+			#pragma acc kernels
+			{			
 			P2[sz[shot] + sx[shot]*Nz] = P2[sz[shot] + sx[shot]*Nz] - wavelet[n];
+			}
 		
-			/* Solve wave equation */
-			// #pragma omp parallel shared(P1,P2,P3,Seismogram,dt,dx,dz,Nx,Nz,ini_x,ini_z,end_x,end_z,Nt,rz)
-			#pragma acc enter data copyin(P1,P2,P3,VP)
+			/* Solve wave equation */						
 			{
 				#pragma acc paralell loop present(P1,P2,P3,VP)
 				for (int index = 4; index < Nx*Nz-4;index++)
