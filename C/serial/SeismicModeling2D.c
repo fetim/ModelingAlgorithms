@@ -3,9 +3,6 @@
 #include <math.h>
 #include <time.h>
 #include <omp.h>
-#ifdef _OPENMP
-	#include<omp.h>
-#endif
 
 float* ricker(int n, float fcorte, float tlag, float dt)
 {
@@ -104,7 +101,7 @@ float* import_float32(char* name, int N_POINTS)
 float* import_ascii(char* name,int N_lines)
 {
 	FILE * fp;
-	char str[100];
+	char str[100];	
 	float* output = (float*)malloc(N_lines * sizeof(float));
 	fp = fopen (name, "r");  
 
@@ -186,9 +183,9 @@ void check_acoustic_stability(float dt,float dh,float vpmax, float vpmin, float 
 int main()
 {
     /* Model parameters*/
-    float* parameters = import_ascii("../../parameters/2D_acoustic_modeling.dat",7);
+	float* parameters = import_ascii("../parameters/2D_acoustic_modeling.dat",7);
 
-  	int Nx        = (int)parameters[0];
+    int Nx        = (int)parameters[0];
 	int Nz        = (int)parameters[1];
 	float dx      = (float)parameters[2];
 	float dz      = (float)parameters[3];
@@ -215,14 +212,14 @@ int main()
 	int Nsnap         = (int)10;
 	int snaptime      = Nt/Nsnap;
 
-	/* Source parameters*/
+/* Source parameters*/
 	int Nshot        = (int)parameters[6];
 
 	int* sx          = (int*)malloc(Nshot*sizeof(int));for (int i=0; i < Nshot;i++) sx[i]=Nx/2 + 5*i  ;
 	int* sz          = (int*)malloc(Nshot*sizeof(int));for (int i=0; i < Nshot;i++) sz[i]=20;
 
 	float fcut       = (float)parameters[7];
-	printf("fcut   = %f \n",fcut);
+	printf("fcut   = %f \n",fcut);	
 
 	/* Receiver position */
 	int rz           = 20;
@@ -244,11 +241,11 @@ int main()
 			VP[j + Nz*i] = 1800;
 		}
     }
-	
+
 	float vpmax = max(Nx*Nz,VP);
 	float vpmin = min(Nx*Nz,VP);
 	check_acoustic_stability(dt,dz,vpmax,vpmin,fcut,2,4);
-
+	
     /* Source wavelet */
     //float* wavelet = ricker(Nt, 30, Nt*dt/5, dt);	
 
@@ -269,17 +266,12 @@ int main()
 	for (int shot=0; shot<Nshot;shot++)
 	{
 		printf("Running shot %d \n", shot+1);
-		#pragma acc enter data copyin(P1,P2,P3,VP)
 		for (int n=0; n<Nt;n++)
 		{		
 			/* Injecting the source*/
-			#pragma acc kernels
-			{			
 			P2[sz[shot] + sx[shot]*Nz] = P2[sz[shot] + sx[shot]*Nz] - wavelet[n];
-			}
 		
-			/* Solve wave equation */						
-			#pragma acc parallel loop present(P1,P2,P3,VP)				
+			/* Solve wave equation */
 			for (int index = 4; index < Nx*Nz-4;index++)
 			{
 				int i = index / Nz;
@@ -291,33 +283,26 @@ int main()
 
 					P3[index] = 2*P2[j + Nz*i] - P1[j + Nz*i] + (dt*dt)*(VP[j + Nz*i]*VP[j + Nz*i])*(p_xx + p_zz);	
 				}
-			}
-
-			// update device ou host (descer da gpu) 
-			// #pragma acc paralell loop present(P3) copyout(recebereceiver)
-			// /* Registering seismogram */
-			// #pragma omp for nowait
-			// for (int rx = 0; rx < Nchannel;rx++)
-			// {
-			// 		Seismogram[n + (rx*Nsamples) + shot*(Nchannel*Nsamples)] = P3[rz + rx*Nz] ;
-			// }
-			/* Update fields */			
-			//#pragma omp for nowait
-			
-			//#pragma acc paralell loop present(P1,P2,P3,VP)
+			}			
+			/* Registering seismogram */
+			for (int rx = 0; rx < Nchannel;rx++)
+			{
+				Seismogram[n + (rx*Nsamples) + shot*(Nchannel*Nsamples)] = P3[rz + rx*Nz] ;
+			}			
+			/* Update fields */
 			for (int index = 1; index < Nx*Nz;index++)
 			{
 				P1[index] = P2[index];
 				P2[index] = P3[index];			
 			}
-		
-			/* Registering Snap shot */
+					
+			/* Registering Snap shot */		
 			if ((n % snaptime == 0) && reg_snapshot==shot+1)
-			{			
+			{	
 				for (int i=0; i < Nx*Nz;i++) snapshot[i + count*(Nx*Nz)]=P3[i]+1.0e-3*VP[i];
 				count = count + 1;
 				printf("Propagation time = %f  Registering snapshot %d \n", dt*n,count);			
-			}
+			}	
 		}
 		// Restarting fields // 
 		for (int i=0; i < Nx*Nz;i++) P1[i]=0;
@@ -326,7 +311,7 @@ int main()
 	}
 	/*Save seismogram in disk*/
 	export_float32("seismogram.bin", Nchannel*Nsamples*Nshot, Seismogram);	
-
+	
 	/*Writting Snapshot in disk */
 	if (reg_snapshot){export_float32("snapshots.bin", Nx*Nz*Nsnap, snapshot);}
 

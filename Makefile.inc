@@ -19,6 +19,8 @@ CC_GPU=pgcc
 FC=gfortran
 FC_GPU=pgfortran
 
+export OMP_NUM_THREADS=11
+
 #Flags for compiler
 C_FLAGS=-lm \
 		 -fopenmp \
