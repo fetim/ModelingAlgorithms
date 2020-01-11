@@ -8,7 +8,7 @@
 # source:https://www.embarcados.com.br/introducao-ao-makefile/
 
 # Compilation parameters
-include ../Makefile.inc
+include ../../Makefile.inc
 COMPILER=$(FC)
 FLAGS=$(F_FLAGS)
 
