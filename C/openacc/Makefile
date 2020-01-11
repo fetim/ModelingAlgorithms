@@ -1,49 +1,25 @@
-# source:https://www.embarcados.com.br/introducao-ao-makefile/
-# author: @fetim
-# Name of project
-PROJ_NAME=Basicmodeling
-
-# .C files
-C_SOURCE=$(wildcard *.c)
-
-# .mod files
-MOD_SOURCE=$(wildcard *.mod)
-
-# Object files
-OBJ=$(C_SOURCE:.c=.o)
-
-# Executable files
-EXE=$(C_SOURCE:.c=.exe)
-
-# Compiler
-CC=pgcc
-
-#Flags for compiler
-CC_FLAGS=-c       #\ # flag to create object files
-#        -otherflag		  #\ # use backslash to break lines
-
-PARALLEL_FLAG=-acc #-Minfo
-
+# Makefile to compile and run
+# Some tips
 # ‘%’ pega o stem (tronco) do nome
 # $@ pega o nome do target e 
 # $< pega o nome do primeiro pré-requisito
 # $^ para listar todos os pré-requisitos do targe
 #
+# source:https://www.embarcados.com.br/introducao-ao-makefile/
+
+# Compilation parameters
+include ../../Makefile.inc
+COMPILER=$(CC_GPU)
+FLAGS=$(C_GPU_FLAGS)
+
 # Compilation and linking
-#
-all: $(EXE)
-# $(EXE): $(OBJ)
-# 	@echo ""
-# 	@echo "main program generation ..."
-# 	$(CC) -o $@ $< $(PARALLEL_FLAG)
+all: $(C_EXE)
 
 %.exe: %.o
-	$(CC) -o $@ $< -lm $(PARALLEL_FLAG)
+	$(COMPILER) -o $@ $< $(FLAGS)
 	
 %.o: %.c
-#	 @echo ""
-#	 @echo "object files generation ..."
-	$(CC) -o $@ $< $(CC_FLAGS) $(PARALLEL_FLAG) -lm 
+	$(COMPILER) -o $@ $< -c $(FLAGS) 
 
 clean:
 	@echo "Removing temporaly files ..."
