@@ -183,7 +183,7 @@ void check_acoustic_stability(float dt,float dh,float vpmax, float vpmin, float 
 int main()
 {
     /* Model parameters*/
-	float* parameters = import_ascii("../parameters/2D_acoustic_modeling.dat",7);
+	float* parameters = import_ascii("../../parameters/2D_acoustic_modeling.dat",7);
 
     int Nx        = (int)parameters[0];
 	int Nz        = (int)parameters[1];
@@ -314,5 +314,5 @@ int main()
 	
 	/*Writting Snapshot in disk */
 	if (reg_snapshot){export_float32("snapshots.bin", Nx*Nz*Nsnap, snapshot);}
-
+	return 0;
 }

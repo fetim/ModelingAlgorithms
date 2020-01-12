@@ -323,5 +323,5 @@ int main()
 
 	/*Writting Snapshot in disk */
 	if (reg_snapshot){export_float32("snapshots.bin", Nx*Nz*Nsnap, snapshot);}
-
+	return 0;
 }

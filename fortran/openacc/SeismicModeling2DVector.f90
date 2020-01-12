@@ -183,9 +183,9 @@ Program Modeling
                 Seism(k + (rx-1)*Nsamples + (shot-1)*(Nchannel*Nsamples)) = record(rx)
             end do
 
-            !Register snapshots
-            !$acc update self(P3)
+            !Register snapshots           
             if ((mod((k-1),Nt/Nsnap) == 0) .and. (reg_snapshot == shot) ) then
+                !$acc update self(P3)
                 print*, "Propagation time =", (k-1)*dt, "Registering snapshot", count_snap
                 write(23,rec=count_snap) ((P3(j + Nz*(i-1)) + 1.0e-3*VP(j + Nz*(i-1)),j=1,Nz),i=1,Nx)
                 count_snap=count_snap+1
