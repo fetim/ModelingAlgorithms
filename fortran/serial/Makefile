@@ -27,7 +27,7 @@ clean:
 
 run:
 	@echo "Running program ... "
-	./SeismicModeling2DVector.exe
+	./SeismicModeling2D.exe
 
 help:	
 	@echo "Makefile do arquivo modeling_basic.f90"

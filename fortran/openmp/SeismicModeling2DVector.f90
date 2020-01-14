@@ -1,5 +1,5 @@
 Program Modeling
-!$ use omp_lib    
+!$use omp_lib    
 implicit none
 
 integer :: k,i,j
