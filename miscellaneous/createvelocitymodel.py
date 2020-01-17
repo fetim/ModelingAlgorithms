@@ -67,29 +67,32 @@ if __name__ =="__main__":
     import qualitycontrolfunctions as qc
 
     # parameters
-    name = "velocitymodel_Marmousi_Nx560_Nz281_dh50_smth50.bin"
-    Nx = 560
-    Nz = 281
-    dx = 50
-    dz = 50
+    name = "xline_buzios_1001z_1202x.bin"
+    Nx = 1202
+    Nz = 1001
+    dx = 10
+    dz = 10
+    
+    trace = np.arange(0,dz*Nx,dx)    
+    depth = np.arange(0,dz*Nz,dz)    
+    
     velocity = qc.readbinaryfile(Nz,Nx,name)
 
-    # # Check velocity model
-    # qc.plotmatrix(velocity,'jet')
+    # Check velocity model
+    qc.plotmatrix(velocity,'jet')
 
 
-    N_layers = 10
-    profile = velocity[:,200]
+    N_layers = 12
+    profile = velocity[:,int(Nx/2)]
     
     # create layered profile
     profile_layer = antismooth(profile,N_layers,"rms")
     
-    # compare profiles
+    # # compare profiles
     # pl.figure()
-    # depth = np.arange(0,dz*Nz,dz)    
     # pl.plot(depth,profile,depth,profile_layer)  
-
-    # number of elements per layer 
+    
+    # # number of elements per layer 
     N_elements = int(np.size(profile)/N_layers)    
     resto = np.size(profile)%N_layers
 
@@ -104,37 +107,39 @@ if __name__ =="__main__":
         layers_mean[layer] = np.mean(profile[layer*N_elements:(layer+1)*N_elements])
         layers_rms[layer]  = np.sqrt(np.mean(profile[layer*N_elements:(layer+1)*N_elements]**2))
     
-    # # check velocity layers
-    pl.figure()
-    pl.plot(layers_min,'*')
+    # # # check velocity layers
+    # pl.figure()
+    # pl.plot(layers_min,'*')
+    # pl.show()
 
-    # # generating layered velocity model
-    velocity_layer = generate_intervalar_model(velocity,layers_min)    
+    # generating layered velocity model
+    velocity_layer = generate_intervalar_model(velocity,layers_rms)    
 
-    # # check layered velocity model
-    qc.plotmatrix(velocity_layer,'jet')
+    # check layered velocity model
+    qc.plotmatrix(velocity_layer,'jet')    
 
     N_horizon = 1
     N_layers = N_horizon + 1
     horizon = np.zeros([Nx,2,N_horizon])
 
-    aux = np.zeros([Nx,2])  
+    # Creating fake horizons    
+    horizon = np.zeros([Nx,2,N_horizon])
     x = np.arange(0,Nx)
-    k = 2*np.pi/(Nx)
+    k = 2*2*np.pi/(Nx)
     phi = 5*np.pi/2
-    z0 = 5*(np.sin(k * x - phi) + 1) + 50
-    
-    aux[:,0] = x
-    aux[:,1] = z0
-    horizon[:,:,0] = np.rint(aux)   
+    z0 = 5*(np.sin(k * x - phi) + 1) + 195
+
+    # pl.plot(x,z0)
+    # pl.show()
+    horizon[:,0,0] = np.rint(x)
+    horizon[:,1,0] = np.rint(z0)
     
     # z1 = 5*(np.sin(k * x - 3/4*phi) + 1) + 90
-    # aux[:,1] = z1
-    # horizon[:,:,1] = np.rint(aux)
+    # horizon[:,:,1] = np.rint(z1)   
 
-    # z2 = 5*(np.sin(k * x - 3*phi) + 1) + 150
-    # aux[:,1] = z2
-    # horizon[:,:,2] = np.rint(aux)  
+    # # z2 = 5*(np.sin(k * x - 3*phi) + 1) + 150
+    # # aux[:,1] = z2
+    # # horizon[:,:,2] = np.rint(aux)  
     
     # Edit first layer of the model
     if(N_horizon == 1):
@@ -142,7 +147,7 @@ if __name__ =="__main__":
             for jj in range(0,Nz):
                 # first layer
                 layer = 0 
-                if (jj <= horizon[ii,1,0]):
+                if (jj <= horizon[ii,1,0]):                    
                     velocity_layer[jj,ii] = layers_min[layer]
 
     # Create velocity model using layers
@@ -164,9 +169,12 @@ if __name__ =="__main__":
                             velocity_layer[jj,ii] = layers_min[layer]
 
 
-    # check layered velocity model
+    # # check layered velocity model
     qc.plotmatrix(velocity_layer,'jet')    
-    for layer in range(0,N_layers-1):
-        pl.plot(horizon[:,0,layer],horizon[:,1,layer])
-    
+# for layer in range(0,N_layers-1):
+#     pl.plot(horizon[:,0,layer],horizon[:,1,layer])
+
     pl.show()  
+    
+    outfile = "xline_buzios_1001z_1202x_layered2.bin"
+    qc.savebinaryfile(Nz,Nx,velocity_layer,outfile)

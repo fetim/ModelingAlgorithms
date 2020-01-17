@@ -34,6 +34,20 @@ def readbinaryfile(dim1,dim2,filename):
             matrix = np.reshape(data, [dim1,dim2], order='F')
       return matrix
 
+def savebinaryfile(dim1,dim2,data,filename):
+      """
+      savebinaryfile - Functions that read a binary file.
+      Usage
+      Input:
+      dim1     = Number of sample of 1st Dimension
+      dim2     = Number of sample of 2nd Dimension
+      data     = 2D array
+      filename = path of binary file     
+      """      
+      import numpy as np
+
+      outdata = data.astype('float32')
+      outdata.T.reshape(dim1*dim2).tofile(filename)
 
 def plotmatrix(matrix,colormap):
       """
