@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/opt/anaconda3/bin/python
 import matplotlib.pyplot as pl
 import numpy as np
 
@@ -40,10 +40,10 @@ def generate_intervalar_model(inputmatrix,layer_value):
     Generate velocity model using rms velocity reference
     '''
     dim1, dim2 = np.shape(inputmatrix)
-    outputmatrix = np.zeros([dim1,dim2])
-    N_layer = np.shape(layer_value)
+    outputmatrix = np.zeros([dim1,dim2])   
+    print("antes generetate")
     for ii in range(0,dim2):
-        for jj in range(0,dim1):
+        for jj in range(0,dim1):            
             # first layer
             layer = 0
             if(inputmatrix[jj,ii] <= layer_value[layer] ):
@@ -64,16 +64,17 @@ if __name__ =="__main__":
     '''
     Ambiente para teste     
     '''
+
     import qualitycontrolfunctions as qc
 
     # parameters
-    name = "xline_buzios_1001z_1202x.bin"
-    Nx = 1202
+    name = "xline_3825_buzios_1001nz_2401nx_dz10m_dx25m.bin"
+    Nx = 2401
     Nz = 1001
-    dx = 10
+    dx = 25
     dz = 10
     
-    trace = np.arange(0,dz*Nx,dx)    
+    trace = np.arange(0,dx*Nx,dx)    
     depth = np.arange(0,dz*Nz,dz)    
     
     velocity = qc.readbinaryfile(Nz,Nx,name)
@@ -92,7 +93,7 @@ if __name__ =="__main__":
     # pl.figure()
     # pl.plot(depth,profile,depth,profile_layer)  
     
-    # # number of elements per layer 
+    # number of elements per layer 
     N_elements = int(np.size(profile)/N_layers)    
     resto = np.size(profile)%N_layers
 
@@ -101,7 +102,7 @@ if __name__ =="__main__":
     layers_min  = np.zeros([N_layers,1])
     layers_mean = np.zeros([N_layers,1])
     layers_rms  = np.zeros([N_layers,1])
-    for layer in range(0,N_layers):    
+    for layer in range(0,N_layers):        
         layers_max[layer]  = np.max(profile[layer*N_elements:(layer+1)*N_elements])
         layers_min[layer]  = np.min(profile[layer*N_elements:(layer+1)*N_elements])
         layers_mean[layer] = np.mean(profile[layer*N_elements:(layer+1)*N_elements])
@@ -112,69 +113,158 @@ if __name__ =="__main__":
     # pl.plot(layers_min,'*')
     # pl.show()
 
-    # generating layered velocity model
+    # generating layered velocity model    
     velocity_layer = generate_intervalar_model(velocity,layers_rms)    
+    
+    # # check layered velocity model
+    # qc.plotmatrix(velocity_layer,'jet')
+    
+    #load horizons
+    fundomar = np.loadtxt("2D_horizons/Fundo_do_Mar_XL3825_2D_davidff.txt")
+    pos_sal1 = np.loadtxt("2D_horizons/Pos-Sal_1_XL3825_2D_davidff.txt")
+    pos_sal2 = np.loadtxt("2D_horizons/Pos-Sal_2_XL3825_2D_davidff.txt")
+    pos_sal3 = np.loadtxt("2D_horizons/Pos-Sal_3_XL3825_2D_davidff.txt")
+    toposal  = np.loadtxt("2D_horizons/Topo_Sal_XL3825_2D_davidff.txt")
+    basesal  = np.loadtxt("2D_horizons/Base_Sal_XL3825_2D_davidff.txt")
 
-    # check layered velocity model
-    qc.plotmatrix(velocity_layer,'jet')    
+    axis_x =  np.arange(0,Nx)
+    fundomar_index = np.zeros([Nx,2])
+    pos_sal1_index = np.zeros([Nx,2])
+    pos_sal2_index = np.zeros([Nx,2])
+    pos_sal3_index = np.zeros([Nx,2])
+    toposal_index  = np.zeros([Nx,2])
+    basesal_index  = np.zeros([Nx,2])
 
-    N_horizon = 1
+    fundomar_index[:,0] = axis_x
+    pos_sal1_index[:,0] = axis_x
+    pos_sal2_index[:,0] = axis_x
+    pos_sal3_index[:,0] = axis_x
+    toposal_index[:,0] = axis_x
+    basesal_index[:,0] = axis_x
+
+    # Check velocity model
+    qc.plotmatrix(velocity,'jet')
+    N_horizon = 6
     N_layers = N_horizon + 1
-    horizon = np.zeros([Nx,2,N_horizon])
+    horizons = np.zeros([Nx,N_layers])
 
-    # Creating fake horizons    
-    horizon = np.zeros([Nx,2,N_horizon])
-    x = np.arange(0,Nx)
-    k = 2*2*np.pi/(Nx)
-    phi = 5*np.pi/2
-    z0 = 5*(np.sin(k * x - phi) + 1) + 195
 
-    # pl.plot(x,z0)
-    # pl.show()
-    horizon[:,0,0] = np.rint(x)
-    horizon[:,1,0] = np.rint(z0)
-    
-    # z1 = 5*(np.sin(k * x - 3/4*phi) + 1) + 90
-    # horizon[:,:,1] = np.rint(z1)   
+    # Create horizon table
+    horizons[:,0]  = np.arange(0,Nx)
+    horizons[:,1]  = np.rint(fundomar[:-2,4]/dz -1)
+    horizons[:,2]  = np.rint(pos_sal1[:-1,4]/dz -1)
+    horizons[:,3]  = np.rint(pos_sal2[:,4]/dz -1)
+    horizons[:,4]  = np.rint(pos_sal3[:-1,4]/dz -1)
+    horizons[:,5]  = np.rint(toposal[:,4]/dz -1)
+    horizons[:,6]  = np.rint(basesal[:,4]/dz -1)
 
-    # # z2 = 5*(np.sin(k * x - 3*phi) + 1) + 150
-    # # aux[:,1] = z2
-    # # horizon[:,:,2] = np.rint(aux)  
-    
+    pl.plot(horizons[:,0],-horizons[:,1],'r')
+    pl.plot(horizons[:,0],-horizons[:,2],'r')
+    pl.plot(horizons[:,0],-horizons[:,3],'r')
+    pl.plot(horizons[:,0],-horizons[:,4],'r')
+    pl.plot(horizons[:,0],-horizons[:,5],'r')
+    pl.plot(horizons[:,0],-horizons[:,6],'r')
+
+    pl.show()  
+        
+    layers_value = np.zeros([N_layers,1])
+    layers_value[0] = 1500
+    layers_value[1] = 2500
+    layers_value[2] = 3500
+    layers_value[3] = 4500
+    layers_value[4] = 5500
+    layers_value[5] = 6500
+    layers_value[6] = 7500
+
     # Edit first layer of the model
-    if(N_horizon == 1):
-        for ii in range(0,Nx):
-            for jj in range(0,Nz):
-                # first layer
-                layer = 0 
-                if (jj <= horizon[ii,1,0]):                    
-                    velocity_layer[jj,ii] = layers_min[layer]
+    for ii in range(0,Nx):
+        for jj in range(0,Nz):
+            # first layer
+            layer = 1 
+            if (jj <= horizons[ii,layer]):                    
+                velocity_layer[jj,ii] = layers_value[layer-1]                
 
-    # Create velocity model using layers
-    elif (N_horizon >= 2):
-        for ii in range(0,Nx):
-            for jj in range(0,Nz):
-                # first layer
-                layer = 0 
-                if (jj <= horizon[ii,1,0]):
-                    velocity_layer[jj,ii] = layers_min[layer]
-                # Last layer
-                layer = N_layers - 1 
-                if (jj > horizon[ii,1,N_horizon-1]):
-                    velocity_layer[jj,ii] = layers_min[layer]
-                # second up to N-1 layer    
-                else:
-                    for layer in range(1,N_layers-1):                    
-                        if ((jj > horizon[ii,1,layer-1]) and jj <= horizon[ii,1,layer]):                        
-                            velocity_layer[jj,ii] = layers_min[layer]
+    # 2nd layer
+    for ii in range(0,Nx):
+        for jj in range(0,Nz):   
+            layer =2
+            if (jj > horizons[ii,layer-1] and jj <= horizons[ii,layer]):                    
+                velocity_layer[jj,ii] = layers_value[layer-1]
+
+    # 3rd layer
+    for ii in range(0,Nx):
+        for jj in range(0,Nz):
+        # first layer        
+            layer =3
+            if (jj > horizons[ii,layer-1] and jj <= horizons[ii,layer]):                    
+                velocity_layer[jj,ii] = layers_value[layer-1]
+
+    # 4th layer
+    for ii in range(0,Nx):
+        for jj in range(0,Nz):
+        # first layer        
+            layer =4
+            if (jj > horizons[ii,layer-1] and jj <= horizons[ii,layer]):                    
+                velocity_layer[jj,ii] = layers_value[layer-1]
+
+
+    # 5th layer
+    for ii in range(0,Nx):
+        for jj in range(0,Nz):
+        # first layer        
+            layer =5
+            if (jj > horizons[ii,layer-1] and jj <= horizons[ii,layer]):                    
+                velocity_layer[jj,ii] = layers_value[layer-1]
+
+    # 6th layer
+    for ii in range(0,Nx):
+        for jj in range(0,Nz):
+        # first layer        
+            layer =6
+            if (jj > horizons[ii,layer-1] and jj <= horizons[ii,layer]):                    
+                velocity_layer[jj,ii] = layers_value[layer-1]          
+                            
+
+    # last layer
+    for ii in range(0,Nx):
+        for jj in range(0,Nz):
+        # first layer        
+            layer =7
+            if (jj > horizons[ii,layer-1]):
+                velocity_layer[jj,ii] = layers_value[layer-1]
+
+    pl.figure()
+    pl.imshow(velocity_layer,cmap='jet')
+    
+
+#     # Create velocity model using layers
+#     elif (N_horizon >= 2):
+#         for ii in range(0,Nx):
+#             for jj in range(0,Nz):
+#                 # first layer
+#                 layer = 0 
+#                 if (jj <= horizon[ii,1,0]):
+#                     velocity_layer[jj,ii] = layers_min[layer]
+#                 # Last layer
+#                 layer = N_layers - 1 
+#                 if (jj > horizon[ii,1,N_horizon-1]):
+#                     velocity_layer[jj,ii] = layers_min[layer]
+#                 # second up to N-1 layer    
+#                 else:
+#                     for layer in range(1,N_layers-1):                    
+#                         if ((jj > horizon[ii,1,layer-1]) and jj <= horizon[ii,1,layer]):                        
+#                             velocity_layer[jj,ii] = layers_min[layer]
 
 
     # # check layered velocity model
-    qc.plotmatrix(velocity_layer,'jet')    
+    # qc.plotmatrix(velocity_layer,'jet')    
 # for layer in range(0,N_layers-1):
 #     pl.plot(horizon[:,0,layer],horizon[:,1,layer])
 
     pl.show()  
     
-    outfile = "xline_buzios_1001z_1202x_layered2.bin"
-    qc.savebinaryfile(Nz,Nx,velocity_layer,outfile)
+#     outfile = "xline_buzios_1001z_1202x_layered2.bin"
+#     qc.savebinaryfile(Nz,Nx,velocity_layer,outfile)
+
+    
+
