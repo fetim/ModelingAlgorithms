@@ -22,7 +22,7 @@ pos_sal3 = np.loadtxt("2D_horizons/Pos-Sal_3_XL3825_2D_davidff.txt")
 toposal  = np.loadtxt("2D_horizons/Topo_Sal_XL3825_2D_davidff.txt")
 basesal  = np.loadtxt("2D_horizons/Base_Sal_XL3825_2D_davidff.txt")
 
-N_horizon = 8
+N_horizon = 11
 N_layers = N_horizon + 1
 horizons = np.zeros([Nx,N_layers])
 
@@ -30,30 +30,45 @@ horizons = np.zeros([Nx,N_layers])
 horizons[:,0]  = np.arange(0,Nx) # trace index
 horizons[:,1]  = np.rint(fundomar[:-2,4]/dz -1)
 
-# creating horizon between them
-horizons[:,2] = (horizons[:,1] - horizons[:,2])
-
 horizons[:,3]  = np.rint(pos_sal1[:-1,4]/dz -1)
+# creating horizon between fundomar and pos_sal1
+horizons[:,2] = np.rint((horizons[:,1] + horizons[:,3])/2)
+
 horizons[:,4]  = np.rint(pos_sal2[:,4]/dz -1)
-horizons[:,5]  = np.rint(pos_sal3[:-1,4]/dz -1)
-horizons[:,6]  = np.rint(toposal[:,4]/dz -1)
-horizons[:,7]  = np.rint(basesal[:,4]/dz -1)
+
+horizons[:,6]  = np.rint(pos_sal3[:-1,4]/dz -1)
+# creating horizon between pos_sal2 and pos_sal3
+horizons[:,5] = np.rint((horizons[:,4] + horizons[:,6])/2)
+
+horizons[:,9]  = np.rint(toposal[:,4]/dz -1)
+
+# creating horizon between pos_sal3 and toposal
+horizons[:,7] = np.rint((horizons[:,6] + horizons[:,9])/2)
+
+# creating horizon between pos_sal3.1 and toposal
+horizons[:,8] = np.rint((horizons[:,7] + horizons[:,9])/2)
+
+horizons[:,10]  = np.rint(basesal[:,4]/dz -1)
 
 # repeat last horizon for base of reservoir
-horizons[:,8]  = np.rint(basesal[:,4]/dz -1) + 55
+horizons[:,11]  = np.rint(basesal[:,4]/dz -1) + 55
 
 
 # set velocity for each layer        
-horizon_vel = np.zeros([N_layers,1])
-horizon_vel[0] = 1500
-horizon_vel[1] = 1600
-horizon_vel[2] = 1900
-horizon_vel[3] = 2300
-horizon_vel[4] = 2800
-horizon_vel[5] = 3700
-horizon_vel[6] = 4500
-horizon_vel[7] = 5500
-horizon_vel[8] = 5600
+horizon_vel     = np.zeros([N_layers,1])
+horizon_vel[0]  = 1500
+horizon_vel[1]  = 2050
+horizon_vel[2]  = 2750
+horizon_vel[3]  = 3000
+horizon_vel[4]  = 3050
+horizon_vel[5]  = 3150
+horizon_vel[6]  = 3200
+horizon_vel[7]  = 3500
+horizon_vel[8]  = 3800
+horizon_vel[9]  = 4500
+horizon_vel[10] = 3800
+horizon_vel[11] = 4600
+
 
 
 velocity_horizon = np.zeros([Nz,Nx])
