@@ -58,7 +58,7 @@ def plotmatrix(matrix,colormap):
 
       pl.figure()
       ax = pl.gca()
-      im = pl.imshow(matrix,cmap= colormap)
+      im = pl.imshow(matrix,cmap= colormap,aspect='auto')
 
       # create an axes on the right side of ax. The width of cax will be 5%
       # # of ax and the padding between cax and ax will be fixed at 0.05 inch.
@@ -66,9 +66,8 @@ def plotmatrix(matrix,colormap):
       cax = divider.append_axes("right", size="5%", pad=0.05)
 
       pl.colorbar(im, cax=cax)
-      #pl.draw() # drawing figure to be plotted later 
-      #pl.show()
-
+      # pl.draw(block=False) # drawing figure to be plotted later 
+      pl.show(block=False) 
 
 if __name__ =="__main__":
       '''
