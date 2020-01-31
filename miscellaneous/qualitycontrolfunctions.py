@@ -1,23 +1,6 @@
-#!/usr/bin/python
-#  Plot 2D binary file.          
-#  This script import a 2D binary file
-#  and plot as image
-#
-#  INPUT:  
-#  filename      = path with the 2D binary file.
-#  dim1          = Number of elements in first dimension
-#  dim2          = Number of elements in second dimension
-# 
-#  OUTPUT: 
-#  file          = None;
-#  
-#  Code Written by Felipe Timoteo and Cintia Queiroz
-#                  Last update: 10 May, 2019
-# 
-#  Copyright (C) 2019 Grupo de Imageamento Sísmico e Inversão Sísmica (GISIS)
-#                     Departamento de Geologia e Geofísica
-#                     Universidade Federal Fluminense
-###############################################################################
+#!/opt/anaconda3/bin/python
+import matplotlib.pyplot as pl
+import numpy as np
 
 def readbinaryfile(dim1,dim2,filename):
       """
@@ -28,7 +11,6 @@ def readbinaryfile(dim1,dim2,filename):
       dim2     = Number of sample of 2nd Dimension
       filename = path of binary file     
       """      
-      import numpy as np
       with open(filename, 'rb') as f:    
             data   = np.fromfile(filename, dtype= np.float32, count= dim1*dim2)
             matrix = np.reshape(data, [dim1,dim2], order='F')
@@ -44,8 +26,6 @@ def savebinaryfile(dim1,dim2,data,filename):
       data     = 2D array
       filename = path of binary file     
       """      
-      import numpy as np
-
       outdata = data.astype('float32')
       outdata.T.reshape(dim1*dim2).tofile(filename)
 
@@ -53,7 +33,6 @@ def plotmatrix(matrix,colormap):
       """
       Plot a 2D matrix read from binary file.
       """      
-      import matplotlib.pyplot as pl
       from mpl_toolkits.axes_grid1 import make_axes_locatable
 
       pl.figure()
@@ -67,16 +46,23 @@ def plotmatrix(matrix,colormap):
 
       pl.colorbar(im, cax=cax)
       # pl.draw(block=False) # drawing figure to be plotted later 
-      pl.show(block=False) 
+      pl.show(block=False)
+
+def smooth1D(vector, box_pts):
+      box = np.ones(box_pts)/box_pts
+      aux = np.ones(box_pts)*vector[0]
+      aux = np.append(aux,vector)
+      aux = np.append(aux,np.ones(box_pts)*vector[-1])
+      aux = np.convolve(aux, box, mode='same')
+      vector_smooth = aux[box_pts:-box_pts]
+
+      return vector_smooth
 
 if __name__ =="__main__":
       '''
       Ambiente para teste das funções criadas      
       '''
-      import matplotlib.pyplot as pl
-      import numpy as np
 
-      import numpy as np
 
       f = open('../parameters/2D_acoustic_modeling.dat', 'r') # 'r' = read
       parameters = np.genfromtxt(f,delimiter='')
