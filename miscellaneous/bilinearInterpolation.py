@@ -50,7 +50,7 @@ if __name__ =="__main__":
 
     # parameters
     folder = "/mnt/Desktop/Dados_Buzios/" 
-    name = folder + "xline_3824_buzios_1001z_1402x_dz10m_dx50m.bin"
+    name = "xline_3824_buzios_1001z_1402x_dz10m_dx50m"
     Nx = 1202
     Nz = 1001
     dx = 50
@@ -61,7 +61,7 @@ if __name__ =="__main__":
     dz_interp = 10
 
     # import velocity model
-    velocity = qc.readbinaryfile(Nz,Nx,name)
+    velocity = qc.readbinaryfile(Nz,Nx,folder+name+".bin")
     qc.plotmatrix(velocity,'jet')
 
     depth  = np.arange(0,Nz*dz,dz)
@@ -76,42 +76,9 @@ if __name__ =="__main__":
     velocity_interp = function_interp_grid_bilinear(Nz_interp,Nx_interp,depth_interp,east_interp,depth,east,velocity)
 
     
-    # ratio_dx = dx/dx_new
-    # ratio_dz = dz/dz_new
-
-    # Nx_new = int(ratio_dx*Nx)
-    # Nz_new = int(ratio_dz*Nz)
-
-    # velocity_interp = np.zeros([Nz_new,Nx_new])
-
-    # # copy input to expanded model
-    # for ii in range(0,Nx):
-    #     for jj in range(0,Nz):
-    #         velocity_interp[int(ratio_dz*jj),int(ratio_dx*ii)] = velocity[jj,ii]
-
-    # ## Filling with bilinear interpolation
-    # for ii in range(0,Nx-1):
-    #     # interp last line
-    #     jj = Nz-1
-    #     value = bilinear_interpolation_m(velocity[jj-1,ii-1],velocity[jj-1,ii],\
-    #             velocity[jj,ii-1],velocity[jj,ii],0,1,0,1,0.5,0.5)
-    #     velocity_interp[int(ratio_dz*jj),int(ratio_dx*ii)+1] = value                
-    #     for jj in range(0,Nz-1):            
-    #         value = bilinear_interpolation_m(velocity[jj,ii],velocity[jj,ii+1],\
-    #             velocity[jj+1,ii],velocity[jj+1,ii+1],0,1,0,1,0.5,0.5)
-
-    #         velocity_interp[int(ratio_dz*jj),int(ratio_dx*ii)+1] = value
-
     
-    # # interp last column
-    # ii=Nx-1
-    # for jj in range(0,Nz):        
-    #     value = bilinear_interpolation_m(velocity[jj-1,ii-1],velocity[jj-1,ii],\
-    #             velocity[jj,ii-1],velocity[jj,ii],0,1,0,1,0.5,0.5)
-    #     velocity_interp[int(ratio_dz*jj),int(ratio_dx*ii)+1] = value                
+    qc.plotmatrix(velocity_interp,'jet')            
 
-    # qc.plotmatrix(velocity_interp,'jet')            
-
-# write velocity P
-# outfile = folder + "xline_buzios_1001z_2401_interp.bin"
-# qc.savebinaryfile(Nz_new,2401,velocity_interp[:,0:2401],outfile)
+    # write velocity P
+    outfile =" xline_3824_buzios_1001z_2403x_dz10m_dx25m_interp"
+    qc.savebinaryfile(Nz_interp,Nx_interp,velocity_interp,folder+outfile +".bin")
