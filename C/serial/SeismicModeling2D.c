@@ -212,7 +212,7 @@ int main()
 	int Nsnap         = (int)10;
 	int snaptime      = Nt/Nsnap;
 
-/* Source parameters*/
+	/* Source parameters*/
 	int Nshot        = (int)parameters[6];
 
 	int* sx          = (int*)malloc(Nshot*sizeof(int));for (int i=0; i < Nshot;i++) sx[i]=Nx/2 + 5*i  ;
