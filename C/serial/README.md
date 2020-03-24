@@ -1,14 +1,13 @@
-# ModelingAlgorithms
-Repository with acoustic wave equation in some programming languages.
-
-The time of processing using openacc was reduced by 98% using the C algorithm to solve the wave equation. The comparison was made with the serial algorithm.
-
 Instructions of use:
 
 execute to compile:
 ```
 make  
 ```
+
+if doesn't work try (needed gcc compiler or similar):
+
+```gcc -o SeismicModeling2D.exe SeismicModeling2D.c -lm```
 
 in the parameters folder set the file ```2D_acoustic_modeling.dat``` :
 
@@ -30,6 +29,10 @@ Choose the programing language and enter in the folder. For example:
 Execute the modeling algorithm with:
 
 ``` make run ```
+
+or
+
+```./Seismogram.exe ```
 
 Check the results with ```ximage``` and ```xmovie``` (seismic unix package)
 
