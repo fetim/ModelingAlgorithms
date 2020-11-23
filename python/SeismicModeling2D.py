@@ -10,6 +10,7 @@ Original file is located at
 import numpy as np
 import matplotlib.pyplot as plt
 from numba import jit, njit, prange
+import time
 
 
 def init_fields(Nz,Nx,Nt):
@@ -46,6 +47,7 @@ def calculate_wavefield_serial(Uf,Uc,Up,vp,dz,dx,dt):
       Uf[j,i]  = (vp[j,i]*vp[j,i])*(dt*dt)*(pxx + pzz) + 2*Uc[j,i] - Up[j,i]
   return Uf
 
+start_time = time.time()
 #Parameters
 dx = 5.
 dz = 5.
@@ -53,7 +55,7 @@ dt = 0.001
 
 L  = 10000
 D  = 3000
-T  = 4
+T  = 1
 
 x  = np.arange(0,L+dx,dx)
 z  = np.arange(0,D+dz,dz)
@@ -148,3 +150,5 @@ plt.figure(figsize=(10,10))
 perc = np.percentile(Seism,99)
 plt.imshow(Seism,aspect='auto',cmap='gray',vmin=-perc,vmax=perc)
 plt.show(block=False)
+
+print("--- %s seconds ---" % (time.time() - start_time))
