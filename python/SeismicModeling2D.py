@@ -55,7 +55,7 @@ dt = 0.001
 
 L  = 10000
 D  = 3000
-T  = 1
+T  = 2
 
 x  = np.arange(0,L+dx,dx)
 z  = np.arange(0,D+dz,dz)

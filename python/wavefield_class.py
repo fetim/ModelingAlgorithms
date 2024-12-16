@@ -1,4 +1,4 @@
-from numpy import arange, zeros, pi, sqrt, exp, shape, copy, any
+from numpy import arange, zeros, pi, sqrt, exp, shape, copy, any, percentile 
 from numba import jit,njit,prange
 import matplotlib.pyplot as plt
 import time
@@ -19,7 +19,7 @@ class wavefield:
  
         self.L    = 10000
         self.D    = 3000
-        self.T    = 4
+        self.T    = 2
 
         self.fcut = 60 # Max frequency
 
@@ -140,7 +140,7 @@ class wavefield:
 
     def plot_seismogram(self):
         plt.figure(figsize=(10,10))
-        perc = np.percentile(self.seismogram,99)
+        perc = percentile(self.seismogram,99)
         plt.imshow(self.seismogram,aspect='auto',cmap='gray',vmin=-perc,vmax=perc)
         plt.show(block=False)
 
