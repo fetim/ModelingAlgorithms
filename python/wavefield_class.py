@@ -1,7 +1,39 @@
-from numpy import arange, zeros, pi, sqrt, exp, shape, copy, any, percentile 
+from numpy import arange, zeros, pi, sqrt, exp, shape, copy, any, percentile, roll
 from numba import jit,njit,prange
 import matplotlib.pyplot as plt
 import time
+import cupy as cp
+
+
+laplacian_kernel = cp.ElementwiseKernel(
+    'raw T u, float32 dz, float32 dx, int32 Nz, int32 Nx',
+    'T lap',
+    '''
+    // Calculate 2D coordinates from flat index
+    int iz = i / Nx;
+    int ix = i % Nx;
+
+    // check boundaries 
+    if (iz < 2 || iz >= Nz - 2 || ix < 2 || ix >= Nx - 2) {
+        lap = 0.0f;
+        return;
+    }
+
+    // 4th-order centered finite differences coefficients
+    // [-1, 16, -30, 16, -1] / (12 * d*d)
+    T dfdz = 16.0f * (u[i-1] + u[i+1]) -
+              1.0f * (u[i-2] + u[i+2]) -
+             30.0f * u[i];
+    dfdz /= (12.0f * dz * dz);
+
+    T dfdx = 16.0f * (u[i-Nx] + u[i+Nx]) -
+              1.0f * (u[i-2*Nx] + u[i+2*Nx]) -
+                30.0f * u[i];
+    dfdx /= (12.0f * dx * dx);
+    lap = dfdz + dfdx;
+    ''',
+    'laplacian_kernel'
+    )
 
 class wavefield:
     approximation = "acoustic"
@@ -41,7 +73,7 @@ class wavefield:
 
         self.source     = self.wavelet_ricker(self.t,self.fcut)
 
-        self.snap       = False
+        self.snap       = True
 
         self.acquisition_geometry()      
         
@@ -86,7 +118,7 @@ class wavefield:
         self.rz = zeros([self.Nrec],dtype=int) + 10
 
     def calculate_wavefield(self):
-        self.future = self.update_equation(self.future,
+        self.future = self.update_equation_kernel(self.future,
                                            self.current,
                                            self.past,
                                            self.vp,
@@ -118,6 +150,54 @@ class wavefield:
                     ax.imshow(self.current)
                     plt.pause(0.001)           
         return self
+    
+    def calculate_wavefieldGPU(self,Uf_g,Uc_g,Up_g,vp_g,dz,dx,dt):
+        Nz,Nx = shape(Uf_g)
+        Uf_g = self.update_equation_kernelGPU(Uf_g,
+                                             Uc_g,
+                                             Up_g,
+                                             vp_g,
+                                             dz,
+                                             dx,
+                                             dt)
+        return Uf_g
+    
+    def update_wavefieldGPU(self,Up_g,Uc_g,Uf_g):
+        Up_g = cp.copy(Uc_g)
+        Uc_g = cp.copy(Uf_g)
+        return Up_g,Uc_g
+    
+    def register_seismogramGPU(self,k,Uc_g):
+        self.seismogram[k,self.rx] = cp.asnumpy(Uc_g[self.rz,self.rx])
+
+
+    def forward_modelingGPU(self,sz,sx):        
+        if self.snap: fig, ax = plt.subplots()
+
+        Uf_g = cp.zeros_like(cp.float32(self.future))
+        Uc_g = cp.zeros_like(cp.float32(self.current))
+        Up_g = cp.zeros_like(cp.float32(self.past))
+        vp_g = cp.asarray(cp.float32(self.vp))
+        source_g = cp.asarray(cp.float32(self.source))
+
+        for k in range(0,self.Nt):
+            Uc_g[sz,sx] = Uc_g[sz,sx] - (self.dt*self.dt)*(vp_g[sz,sx]*vp_g[sz,sx]) * source_g[k]
+            Uf_g = self.calculate_wavefieldGPU(Uf_g,Uc_g,Up_g,vp_g,self.dz,self.dx,self.dt)
+
+            
+            Up_g,Uc_g = self.update_wavefieldGPU(Up_g,Uc_g,Uf_g)
+
+            # self.calculate_wavefield)
+            self.register_seismogramGPU(k,Uc_g)
+
+            if (k%100 ==0):
+                print("step = %i" %k)
+                if self.snap:
+                    ax.cla()
+                    ax.imshow(Uc_g.get())
+                    plt.pause(0.001)           
+        return self
+
 
 
 
@@ -172,25 +252,91 @@ class wavefield:
                 pzz = (-Uc[j+2,i] + 16*Uc[j+1,i] -30*Uc[j,i] + 16*Uc[j-1,i] - Uc[j-2,i] )/(12*dz*dz)
                 Uf[j,i]  = (vp[j,i]*vp[j,i])*(dt*dt)*(pxx + pzz) + 2*Uc[j,i] - Up[j,i]
         return Uf
+    
+    @staticmethod
+    def update_equation_roll(Uf,Uc,Up,vp,dz,dx,dt):
+        # # Placeholder for potential alternative implementation
+        Nz,Nx = shape(Uf)
+        denom_x = 12.0 * dx * dx
+        denom_z = 12.0 * dz * dz
+        # rolls wrap; we'll zero the outer 2 rows/cols after computation to avoid wrap artifacts
+        pxx = (-roll(Uc, -2, axis=1) + 16.0 * roll(Uc, -1, axis=1)
+               - 30.0 * Uc + 16.0 * roll(Uc, 1, axis=1) - roll(Uc, 2, axis=1)) / denom_x
+        
+        pzz = (-roll(Uc, -2, axis=0) + 16.0 * roll(Uc, -1, axis=0)
+               - 30.0 * Uc + 16.0 * roll(Uc, 1, axis=0) - roll(Uc, 2, axis=0)) / denom_z
+        
+        Uf[...] = (vp * vp) * (dt * dt) * (pxx + pzz) + 2.0 * Uc - Up
+        return Uf
+    
+    @staticmethod
+    def update_equation_cupy(Uf,Uc,Up,vp,dz,dx,dt):
+        Nz,Nx = shape(Uf)
+        Uf_g = cp.asarray(Uf)
+        Uc_g = cp.asarray(Uc)
+        Up_g = cp.asarray(Up)
+        vp_g = cp.asarray(vp)
+        denom_x = 12.0 * dx * dx
+        denom_z = 12.0 * dz * dz    
 
+        pxx = (-cp.roll(Uc_g, -2, axis=1) + 16.0 * cp.roll(Uc_g, -1, axis=1)
+               - 30.0 * Uc_g + 16.0 * cp.roll(Uc_g, 1, axis=1) - cp.roll(Uc_g, 2, axis=1)) / denom_x
+        pzz = (-cp.roll(Uc_g, -2, axis=0) + 16.0 * cp.roll(Uc_g, -1, axis=0)
+               - 30.0 * Uc_g + 16.0 * cp.roll(Uc_g, 1, axis=0) - cp.roll(Uc_g, 2, axis=0)) / denom_z
 
-start_time = time.time()
+        Uf_g[...] = (vp_g * vp_g) * (dt * dt) * (pxx + pzz) + 2.0 * Uc_g - Up_g
+        
+        # zero the borders (2 layers) to avoid wrap contributions
+        Uf_g[:2, :] = 0
+        Uf_g[-2:, :] = 0
+        Uf_g[:, :2] = 0
+        Uf_g[:, -2:] = 0
+        return cp.asnumpy(Uf_g)
+    
+    
 
-# Start parameters and wavefields
-u = wavefield()
+    @staticmethod
+    def update_equation_kernel(Uf,Uc,Up,vp,dz,dx,dt):
+        
+        Nz,Nx = cp.int32(shape(Uf))
+        Uf_g = cp.empty_like(cp.float32(Uf))
+        Uc_g = cp.asarray(cp.float32(Uc))
+        Up_g = cp.asarray(cp.float32(Up))
+        vp_g = cp.asarray(cp.float32(vp))
 
-# load velocity model
-u.vp = u.velocitymodel_3layers(u.vp,1500,2000,3000)
+        laplacian_kernel(Uc_g, dz, dx, Nz, Nx, Uf_g)
+        Uf_g = (vp_g * vp_g) * (dt * dt) * Uf_g + 2.0 * Uc_g - Up_g
+        
+        return cp.asnumpy(Uf_g)
+        
+    @staticmethod
+    def update_equation_kernelGPU(Uf_g,Uc_g,Up_g,vp_g,dz,dx,dt):
+        
+        Nz,Nx = cp.int32(cp.shape(Uf_g))
+        laplacian_kernel(Uc_g, dz, dx, Nz, Nx, Uf_g)
+        Uf_g = (vp_g * vp_g) * (dt * dt) * Uf_g + 2.0 * Uc_g - Up_g
+        return Uf_g
+    
+if __name__ == "__main__":
+    start_time = time.time()
 
-u.check_dispersionstability()
+    # Start parameters and wavefields
+    u = wavefield()
 
-# generate synthetic seismogram
-u.forward_modeling(u.sz,u.sx)
+    # load velocity model
+    u.vp = u.velocitymodel_3layers(u.vp,1500,2000,3000)
 
-u.plot_seismogram()
+    u.check_dispersionstability()
 
-print("Normal end of execution")
-print("--- %s seconds ---" % (time.time() - start_time))
+    # generate synthetic seismogram
+    # u.forward_modeling(u.sz,u.sx)
+    # 
+    u.forward_modelingGPU(u.sz,u.sx)
+
+    u.plot_seismogram()
+
+    print("Normal end of execution")
+    print("--- %s seconds ---" % (time.time() - start_time))
 
     
 
