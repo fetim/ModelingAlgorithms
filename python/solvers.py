@@ -1,0 +1,118 @@
+from numpy import arange, zeros, pi, sqrt, exp, shape, copy, any, percentile, roll
+from numba import jit,njit,prange
+import cupy as cp
+
+from CUDA_Kernels import laplacian_kernel
+
+#%% Numba JIT-based functions
+@staticmethod
+@jit(nopython=True,parallel=True)
+def velocitymodel_3layers(vp,v1,v2,v3):
+    Nz,Nx = shape(vp)
+    vp[0:int(Nz/4),:]         = v1
+    vp[int(Nz/4):int(Nz/2),:] = v2
+    vp[int(Nz/2):,:]          = v3
+    return vp
+
+@staticmethod
+@jit(nopython=True,parallel=True)
+def wavelet_ricker(time,freq):        
+    td     = time - 2*sqrt(pi)/freq
+    fcd    = freq/(sqrt(pi)*3) 
+    source = (1 - 2*pi*(pi*fcd*td)*(pi*fcd*td))*exp(-pi*(pi*fcd*td)*(pi*fcd*td))
+    return source
+
+@staticmethod
+def laplacian_serial(Uc,dz,dx):
+    Nz,Nx = Uc.shape
+    lap = zeros((Nz,Nx))
+    dx2 = 12.0 * dx * dx
+    dz2 = 12.0 * dz * dz
+    for i in range(2,Nx-3):
+        for j in range(2,Nz-3):
+            pxx = (-Uc[j,i+2] + 16*Uc[j,i+1] -30*Uc[j,i] + 16*Uc[j,i-1] - Uc[j,i-2] )/(dx2)
+            pzz = (-Uc[j+2,i] + 16*Uc[j+1,i] -30*Uc[j,i] + 16*Uc[j-1,i] - Uc[j-2,i] )/(dz2)
+            lap[j,i]  = (pxx + pzz)
+    return lap
+
+
+@staticmethod
+@jit(nopython=True,parallel=True)
+def laplacian_numba(Uc,dz,dx):
+    """
+    4th-order centered finite differences using explicit loops (numba JIT)
+    """
+    Nz,Nx = shape(Uc)
+    lap = zeros((Nz,Nx))
+    dx2 = 12.0 * dx * dx
+    dz2 = 12.0 * dz * dz
+    for i in prange(2,Nx-3): # parallel
+        for j in prange(2,Nz-3): # parallel
+            pxx = (-Uc[j,i+2] + 16*Uc[j,i+1] -30*Uc[j,i] + 16*Uc[j,i-1] - Uc[j,i-2] )/(dx2)
+            pzz = (-Uc[j+2,i] + 16*Uc[j+1,i] -30*Uc[j,i] + 16*Uc[j-1,i] - Uc[j-2,i] )/(dz2)
+            lap[j,i]  = (pxx + pzz)
+    
+    return lap
+
+@staticmethod
+def laplacian_roll(Uc,dz,dx):
+    """
+    4th-order centered finite differences using roll (vectorized)
+    """
+    Nz,Nx = shape(Uc)
+    dx2 = 12.0 * dx * dx
+    dz2 = 12.0 * dz * dz
+    # rolls wrap; we'll zero the outer 2 rows/cols after computation to avoid wrap artifacts
+    pxx = (-roll(Uc, -2, axis=1) + 16.0 * roll(Uc, -1, axis=1)
+            - 30.0 * Uc + 16.0 * roll(Uc, 1, axis=1) - roll(Uc, 2, axis=1)) / dx2
+    
+    pzz = (-roll(Uc, -2, axis=0) + 16.0 * roll(Uc, -1, axis=0)
+            - 30.0 * Uc + 16.0 * roll(Uc, 1, axis=0) - roll(Uc, 2, axis=0)) / dz2
+    
+    lap = pxx + pzz
+    # zero the borders (2 layers) to avoid wrap contributions
+    lap[:2, :] = 0
+    lap[-2:, :] = 0
+    lap[:, :2] = 0
+    lap[:, -2:] = 0
+    return (lap)
+
+@staticmethod
+def laplacian_cupy(Uc,dz,dx):
+    """
+    4th-order centered finite differences using CuPy
+    """
+    Nz,Nx = shape(Uc)
+    Uc_g = cp.asarray(Uc)
+    lap = cp.zeros_like(Uc_g)
+    denom_x = 12.0 * dx * dx
+    denom_z = 12.0 * dz * dz    
+    
+    pxx = (-cp.roll(Uc_g, -2, axis=1) + 16.0 * cp.roll(Uc_g, -1, axis=1)
+            - 30.0 * Uc_g + 16.0 * cp.roll(Uc_g, 1, axis=1) - cp.roll(Uc_g, 2, axis=1)) / denom_x
+    pzz = (-cp.roll(Uc_g, -2, axis=0) + 16.0 * cp.roll(Uc_g, -1, axis=0)
+            - 30.0 * Uc_g + 16.0 * cp.roll(Uc_g, 1, axis=0) - cp.roll(Uc_g, 2, axis=0)) / denom_z
+
+    lap = pxx + pzz
+    # Uf_g[...] = (vp_g * vp_g) * (dt * dt) * (pxx + pzz) + 2.0 * Uc_g - Up_g
+    
+    # zero the borders (2 layers) to avoid wrap contributions
+    lap[:2, :] = 0
+    lap[-2:, :] = 0
+    lap[:, :2] = 0
+    lap[:, -2:] = 0
+    return cp.asnumpy(lap)
+
+#%% CUDA kernel-based update function
+def acousticWaveEquationCUDA(Uf_g,Uc_g,Up_g,vp_g,dz,dx,dt):
+    Nz,Nx = cp.int32(cp.shape(Uf_g))
+    laplacian_kernel(Uc_g, dz, dx, Nz, Nx, Uf_g)
+    Uf_g = (vp_g * vp_g) * (dt * dt) * Uf_g + 2.0 * Uc_g - Up_g
+    return Uf_g
+
+def update_wavefieldCUDA(Up_g,Uc_g,Uf_g):
+    Up_g = cp.copy(Uc_g)
+    Uc_g = cp.copy(Uf_g)
+    return Up_g,Uc_g
+
+    
