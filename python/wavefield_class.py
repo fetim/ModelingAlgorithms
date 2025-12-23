@@ -87,7 +87,6 @@ class wavefield:
 #%% Memory allocation
     def allocate_wavefields(self):
         self.current    = zeros([self.Nz,self.Nx])
-        self.past       = zeros([self.Nz,self.Nx])
         self.future     = zeros([self.Nz,self.Nx])  
         self.seismogram = zeros([self.Nt,self.Nrec])
 
@@ -139,14 +138,13 @@ class wavefield:
 
         Uf_g = cp.zeros_like(cp.float32(self.future))
         Uc_g = cp.zeros_like(cp.float32(self.current))
-        Up_g = cp.zeros_like(cp.float32(self.past))
         vp_g = cp.asarray(cp.float32(self.vp))
         source_g = cp.asarray(cp.float32(self.source))
 
         for k in range(0,self.Nt):
             Uc_g[sz,sx] = Uc_g[sz,sx] - (self.dt*self.dt)*(vp_g[sz,sx]*vp_g[sz,sx]) * source_g[k]
-            Uf_g = acousticWaveEquationCUDA(Uf_g,Uc_g,Up_g,vp_g,self.dz,self.dx,self.dt)
-            Up_g,Uc_g = update_wavefieldCUDA(Up_g,Uc_g,Uf_g)
+            Uf_g = acousticWaveEquationCUDA(Uf_g,Uc_g,vp_g,self.dz,self.dx,self.dt)
+            Uf_g,Uc_g = update_wavefieldCUDA(Uc_g,Uf_g)
             self.register_seismogramCUDA(k,Uc_g)
 
             if (k%100 ==0):
