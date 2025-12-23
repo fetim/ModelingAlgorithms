@@ -28,7 +28,7 @@ class wavefield:
  
         self.L    = 5000
         self.D    = 2000
-        self.T    = 1
+        self.T    = 3
 
         self.fcut = 60 # Max frequency
 
@@ -40,7 +40,7 @@ class wavefield:
         self.Nz   = len(self.z)
         self.Nt   = len(self.t)
 
-        self.nb   = 50  # absorbing boundary thickness in grid points
+        self.nb   = 80  # absorbing boundary thickness in grid points
         self.Nrec = self.Nx
 
         self.vp         = zeros([self.Nz,self.Nx])
@@ -94,30 +94,26 @@ class wavefield:
 
 #%% CPU-based forward modeling
     def acousticWaveEquation(self):
-        """
-        Solve acoustic wave equation using 4th-order centered finite differences
-        """
+
         # lap = laplacian_serial(self.current,self.dz,self.dx)
-        # lap = laplacian_numba(self.current,self.dz,self.dx)
+        lap = laplacian_numba(self.current,self.dz,self.dx)
         
-        self.future = (self.vp * self.vp) * (self.dt * self.dt) * lap + 2*self.current - self.past
+        self.future = (self.vp * self.vp) * (self.dt * self.dt) * lap + 2*self.current - self.future
                                                    
-    def update_wavefield(self):
-        self.past    = copy(self.current)
-        self.current = copy(self.future)
-    
     def register_seismogram(self,k):
-        self.seismogram[k,self.rx] = self.current[self.rz,self.rx]
+        self.seismogram[k,self.channel] = self.current[self.rz,self.rx]
         
-    def forward_modeling(self,sz,sx):       
+    def forward_modeling(self):       
         print("info: CPU Forward Modeling")
         if self.snap: fig, ax = plt.subplots()
         
-        self.allocate_wavefields()        
+        self.expandModel()
+        self.allocate_wavefields()    
+        sz,sx = self.sz,self.sx
         for k in range(0,self.Nt):
             self.current[sz,sx] = self.current[sz,sx] - (self.dt*self.dt)*(self.vp[sz,sx]*self.vp[sz,sx]) * self.source[k]
-            self.acousticWaveEquation()
-            self.update_wavefield()
+            self.acousticWaveEquation()            
+            self.future, self.current = self.current, self.future            
             self.register_seismogram(k)
             if (k%100 ==0):
                 print("step = %i" %k)
@@ -184,6 +180,7 @@ class wavefield:
                     ax.cla()
                     # ax.imshow(Uc_g[self.nb:-self.nb,self.nb:-self.nb].get())
                     ax.imshow(Uc_g.get())
+                    ax.plot(sx,sz,'r+')
                     plt.pause(0.001)           
         return self.seismogram
 
@@ -223,7 +220,7 @@ if __name__ == "__main__":
     u.check_dispersionstability()
 
     # generate synthetic seismogram
-    # seismogram = u.forward_modeling(u.sz,u.sx)
+    # seismogram = u.forward_modeling()
     seismogram = u.forward_modelingGPU()
 
     u.plot_seismogram()
