@@ -10,10 +10,8 @@ from solvers import velocitymodel_3layers
 from solvers import wavelet_ricker
 from solvers import laplacian_serial
 from solvers import laplacian_numba
-from solvers import laplacian_roll
-from solvers import laplacian_cupy
 
-from solvers import acousticWaveEquationCUDA_raw
+from solvers import acousticWaveEquationCUDA
 from solvers import apply_dampingCUDA
 class wavefield:
 
@@ -101,8 +99,6 @@ class wavefield:
         """
         # lap = laplacian_serial(self.current,self.dz,self.dx)
         # lap = laplacian_numba(self.current,self.dz,self.dx)
-        # lap = laplacian_roll(self.current,self.dz,self.dx)
-        lap = laplacian_cupy(self.current,self.dz,self.dx)
         
         self.future = (self.vp * self.vp) * (self.dt * self.dt) * lap + 2*self.current - self.past
                                                    
@@ -170,7 +166,7 @@ class wavefield:
         sz,sx = self.sz,self.sx
         for k in range(0,self.Nt):
             Uc_g[sz,sx] = Uc_g[sz,sx] - (self.dt*self.dt)*(vp_g[sz,sx]*vp_g[sz,sx]) * source_g[k]
-            Uf_g = acousticWaveEquationCUDA_raw(Uf_g,Uc_g,vp_g,self.dz,self.dx,self.dt)
+            Uf_g = acousticWaveEquationCUDA(Uf_g,Uc_g,vp_g,self.dz,self.dx,self.dt)
             Uf_g,Uc_g = Uc_g,Uf_g # swap pointers
             Uf_g,Uc_g = apply_dampingCUDA(Uf_g,Uc_g,self.nb)
 

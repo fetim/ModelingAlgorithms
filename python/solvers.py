@@ -2,7 +2,7 @@ from numpy import arange, zeros, pi, sqrt, exp, shape, copy, any, percentile, ro
 from numba import jit,njit,prange
 import cupy as cp
 
-from CUDA_Kernels import laplacian_kernel_8th_raw
+from CUDA_Kernels import LaplacianKernel8thOrder
 from CUDA_Kernels import DampingWavefieldKernel
 #%% Numba JIT-based functions
 @staticmethod
@@ -54,56 +54,7 @@ def laplacian_numba(Uc,dz,dx):
     
     return lap
 
-@staticmethod
-def laplacian_roll(Uc,dz,dx):
-    """
-    4th-order centered finite differences using roll (vectorized)
-    """
-    Nz,Nx = shape(Uc)
-    dx2 = 12.0 * dx * dx
-    dz2 = 12.0 * dz * dz
-    # rolls wrap; we'll zero the outer 2 rows/cols after computation to avoid wrap artifacts
-    pxx = (-roll(Uc, -2, axis=1) + 16.0 * roll(Uc, -1, axis=1)
-            - 30.0 * Uc + 16.0 * roll(Uc, 1, axis=1) - roll(Uc, 2, axis=1)) / dx2
-    
-    pzz = (-roll(Uc, -2, axis=0) + 16.0 * roll(Uc, -1, axis=0)
-            - 30.0 * Uc + 16.0 * roll(Uc, 1, axis=0) - roll(Uc, 2, axis=0)) / dz2
-    
-    lap = pxx + pzz
-    # zero the borders (2 layers) to avoid wrap contributions
-    lap[:2, :] = 0
-    lap[-2:, :] = 0
-    lap[:, :2] = 0
-    lap[:, -2:] = 0
-    return (lap)
-
-@staticmethod
-def laplacian_cupy(Uc,dz,dx):
-    """
-    4th-order centered finite differences using CuPy
-    """
-    Nz,Nx = shape(Uc)
-    Uc_g = cp.asarray(Uc)
-    lap = cp.zeros_like(Uc_g)
-    denom_x = 12.0 * dx * dx
-    denom_z = 12.0 * dz * dz    
-    
-    pxx = (-cp.roll(Uc_g, -2, axis=1) + 16.0 * cp.roll(Uc_g, -1, axis=1)
-            - 30.0 * Uc_g + 16.0 * cp.roll(Uc_g, 1, axis=1) - cp.roll(Uc_g, 2, axis=1)) / denom_x
-    pzz = (-cp.roll(Uc_g, -2, axis=0) + 16.0 * cp.roll(Uc_g, -1, axis=0)
-            - 30.0 * Uc_g + 16.0 * cp.roll(Uc_g, 1, axis=0) - cp.roll(Uc_g, 2, axis=0)) / denom_z
-
-    lap = pxx + pzz
-    # Uf_g[...] = (vp_g * vp_g) * (dt * dt) * (pxx + pzz) + 2.0 * Uc_g - Up_g
-    
-    # zero the borders (2 layers) to avoid wrap contributions
-    lap[:2, :] = 0
-    lap[-2:, :] = 0
-    lap[:, :2] = 0
-    lap[:, -2:] = 0
-    return cp.asnumpy(lap)
-
-def acousticWaveEquationCUDA_raw(Uf_g,Uc_g,vp_g,dz,dx,dt):
+def acousticWaveEquationCUDA(Uf_g,Uc_g,vp_g,dz,dx,dt):
     Nz, Nx = Uf_g.shape
     
     # Pre-allocate output
@@ -115,7 +66,7 @@ def acousticWaveEquationCUDA_raw(Uf_g,Uc_g,vp_g,dz,dx,dt):
     blocks_per_grid = (total_pixels + threads_per_block - 1) // threads_per_block
     
     # Launch Kernel
-    laplacian_kernel_8th_raw(
+    LaplacianKernel8thOrder(
         (blocks_per_grid,),       # Grid dimensions
         (threads_per_block,),     # Block dimensions
         (

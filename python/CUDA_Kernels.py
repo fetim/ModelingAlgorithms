@@ -4,7 +4,7 @@ CUDA Kernels for wavefield modeling
 """
 laplacian_8th_source = r'''
 extern "C" __global__
-void laplacian_kernel_8th_raw(const float* u, float* lap, float dz, float dx, int Nz, int Nx) {
+void LaplacianKernel8thOrder(const float* u, float* lap, float dz, float dx, int Nz, int Nx) {
     
     // Calculate Global Index
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -53,7 +53,7 @@ void laplacian_kernel_8th_raw(const float* u, float* lap, float dz, float dx, in
 '''
 
 # Compile kernel once
-laplacian_kernel_8th_raw = cp.RawKernel(laplacian_8th_source, 'laplacian_kernel_8th_raw')
+LaplacianKernel8thOrder = cp.RawKernel(laplacian_8th_source, 'LaplacianKernel8thOrder')
 
 absorb_code = r'''
 extern "C" __global__
