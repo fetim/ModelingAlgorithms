@@ -3,6 +3,7 @@ from numba import jit,njit,prange
 import matplotlib.pyplot as plt
 import time
 import cupy as cp
+import numpy as np
 
 # from CUDA_Kernels import laplacian_kernel
 from solvers import velocitymodel_3layers
@@ -81,10 +82,12 @@ class wavefield:
 
     def acquisition_geometry(self):
         self.sx = int(self.L/2/self.dx)
-        self.sz = int(self.D/2/self.dz)
+        self.sz = 5
 
         self.rx = arange(0,self.Nrec,dtype=int)
         self.rz = zeros([self.Nrec],dtype=int) + 10
+        self.Nrec = len(self.rx)
+        self.channel = np.arange(0,self.Nrec,1)
 
 #%% Memory allocation
     def allocate_wavefields(self):
@@ -126,24 +129,46 @@ class wavefield:
                 if self.snap:
                     ax.cla()
                     ax.imshow(self.current)
+                    ax.plot(sx,sz,'r+')
                     plt.pause(0.001)           
         return self.seismogram
 #%% GPU-based forward modeling        
     def register_seismogramCUDA(self,k,Uc_g):
-        self.seismogram[k,self.rx] = cp.asnumpy(Uc_g[self.rz,self.rx])
+        self.seismogram[k,self.channel] = cp.asnumpy(Uc_g[self.rz,self.rx])
 
-    def forward_modelingGPU(self,sz,sx):
+    def expandModel(self):
+
+        nb = self.nb
+        Nx,Nz = self.Nx,self.Nz
+
+        self.Nx += 2*self.nb
+        self.Nz += 2*self.nb
+        self.sx += self.nb
+        self.sz += self.nb
+        self.rx += self.nb
+        self.rz += self.nb
+        
+        vp_exp = np.zeros((Nz+2*nb,Nx+2*nb),dtype=np.float32)
+        vp_exp[nb:-nb,nb:-nb] = self.vp
+        vp_exp[0:nb,nb:-nb] = self.vp[0,:]
+        vp_exp[-nb:,nb:-nb] = self.vp[-1,:]
+        vp_exp[:,0:nb] = vp_exp[:,nb:nb+1]
+        vp_exp[:,-nb:] = vp_exp[:,-nb-1:-nb]
+        self.vp = vp_exp
+
+    def forward_modelingGPU(self):
         print("info: GPU Forward Modeling")
         if self.snap: fig, ax = plt.subplots()
-        # self.Nx += self.nb
 
+        self.expandModel()        
         self.allocate_wavefields()
 
         Uf_g = cp.zeros_like(cp.float32(self.future))
         Uc_g = cp.zeros_like(cp.float32(self.current))
         vp_g = cp.asarray(cp.float32(self.vp))
         source_g = cp.asarray(cp.float32(self.source))
-
+        
+        sz,sx = self.sz,self.sx
         for k in range(0,self.Nt):
             Uc_g[sz,sx] = Uc_g[sz,sx] - (self.dt*self.dt)*(vp_g[sz,sx]*vp_g[sz,sx]) * source_g[k]
             Uf_g = acousticWaveEquationCUDA(Uf_g,Uc_g,vp_g,self.dz,self.dx,self.dt)
@@ -192,14 +217,13 @@ if __name__ == "__main__":
     u = wavefield()
 
     # load velocity model
-    u.vp = velocitymodel_3layers(u.vp,2000,2000,2000)
+    u.vp = velocitymodel_3layers(u.vp,1500,2000,3000)
 
     u.check_dispersionstability()
 
     # generate synthetic seismogram
     # seismogram = u.forward_modeling(u.sz,u.sx)
-    # 
-    seismogram = u.forward_modelingGPU(u.sz,u.sx)
+    seismogram = u.forward_modelingGPU()
 
     u.plot_seismogram()
 
