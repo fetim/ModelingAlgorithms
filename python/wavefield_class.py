@@ -14,6 +14,7 @@ from solvers import laplacian_roll
 from solvers import laplacian_cupy
 
 from solvers import acousticWaveEquationCUDA
+from solvers import acousticWaveEquationCUDA_raw
 from solvers import update_wavefieldCUDA
 from solvers import apply_dampingCUDA
 class wavefield:
@@ -171,7 +172,8 @@ class wavefield:
         sz,sx = self.sz,self.sx
         for k in range(0,self.Nt):
             Uc_g[sz,sx] = Uc_g[sz,sx] - (self.dt*self.dt)*(vp_g[sz,sx]*vp_g[sz,sx]) * source_g[k]
-            Uf_g = acousticWaveEquationCUDA(Uf_g,Uc_g,vp_g,self.dz,self.dx,self.dt)
+            # Uf_g = acousticWaveEquationCUDA(Uf_g,Uc_g,vp_g,self.dz,self.dx,self.dt)
+            Uf_g = acousticWaveEquationCUDA_raw(Uf_g,Uc_g,vp_g,self.dz,self.dx,self.dt)
             Uf_g,Uc_g = update_wavefieldCUDA(Uc_g,Uf_g)
             Uf_g,Uc_g = apply_dampingCUDA(Uf_g,Uc_g,self.nb)
 
@@ -218,7 +220,6 @@ if __name__ == "__main__":
 
     # load velocity model
     u.vp = velocitymodel_3layers(u.vp,1500,2000,3000)
-
     u.check_dispersionstability()
 
     # generate synthetic seismogram

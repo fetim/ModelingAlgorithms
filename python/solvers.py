@@ -4,6 +4,7 @@ import cupy as cp
 
 from CUDA_Kernels import laplacian_kernel
 from CUDA_Kernels import laplacian_kernel_8th   
+from CUDA_Kernels import laplacian_kernel_8th_raw
 from CUDA_Kernels import DampingWavefieldKernel
 #%% Numba JIT-based functions
 @staticmethod
@@ -112,6 +113,33 @@ def acousticWaveEquationCUDA(Uf_g,Uc_g,vp_g,dz,dx,dt):
     laplacian_kernel_8th(Uc_g, dz, dx, Nz, Nx, lap)
     Uf_g = (vp_g * vp_g) * (dt * dt) * lap + 2.0 * Uc_g - Uf_g
     return Uf_g
+
+def acousticWaveEquationCUDA_raw(Uf_g,Uc_g,vp_g,dz,dx,dt):
+    Nz, Nx = Uf_g.shape
+    
+    # Pre-allocate output
+    lap = cp.zeros_like(Uc_g)
+    
+    # Grid setup
+    total_pixels = Nz * Nx
+    threads_per_block = 256
+    blocks_per_grid = (total_pixels + threads_per_block - 1) // threads_per_block
+    
+    # Launch Kernel
+    laplacian_kernel_8th_raw(
+        (blocks_per_grid,),       # Grid dimensions
+        (threads_per_block,),     # Block dimensions
+        (
+            Uc_g,                # const float* u
+            lap,                  # float* lap
+            cp.float32(dz),       # float dz
+            cp.float32(dx),       # float dx
+            cp.int32(Nz),         # int Nz
+            cp.int32(Nx)          # int Nx
+        )
+    )
+    return (vp_g * vp_g) * (dt * dt) * lap + 2.0 * Uc_g - Uf_g
+
 
 def update_wavefieldCUDA(Uc_g,Uf_g):
     Uf_g,Uc_g = cp.copy(Uc_g), cp.copy(Uf_g)
