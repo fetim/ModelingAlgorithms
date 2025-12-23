@@ -54,11 +54,9 @@ def laplacian_numba(Uc,dz,dx):
     
     return lap
 
-def acousticWaveEquationCUDA(Uf_g,Uc_g,vp_g,dz,dx,dt):
+def acousticWaveEquationCUDA(Uf_g,Uc_g,lap,vp_g,dz,dx,dt):
     Nz, Nx = Uf_g.shape
     
-    # Pre-allocate output
-    lap = cp.zeros_like(Uc_g)
     
     # Grid setup
     total_pixels = Nz * Nx

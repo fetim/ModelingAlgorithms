@@ -158,15 +158,17 @@ class wavefield:
         self.expandModel()        
         self.allocate_wavefields()
 
+        lap = cp.zeros_like(cp.float32(self.future))
         Uf_g = cp.zeros_like(cp.float32(self.future))
         Uc_g = cp.zeros_like(cp.float32(self.current))
         vp_g = cp.asarray(cp.float32(self.vp))
+
         source_g = cp.asarray(cp.float32(self.source))
         
         sz,sx = self.sz,self.sx
         for k in range(0,self.Nt):
             Uc_g[sz,sx] = Uc_g[sz,sx] - (self.dt*self.dt)*(vp_g[sz,sx]*vp_g[sz,sx]) * source_g[k]
-            Uf_g = acousticWaveEquationCUDA(Uf_g,Uc_g,vp_g,self.dz,self.dx,self.dt)
+            Uf_g = acousticWaveEquationCUDA(Uf_g,Uc_g,lap,vp_g,self.dz,self.dx,self.dt)
             Uf_g,Uc_g = Uc_g,Uf_g # swap pointers
             Uf_g,Uc_g = apply_dampingCUDA(Uf_g,Uc_g,self.nb)
 

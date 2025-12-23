@@ -15,7 +15,7 @@ C_EXE=$(C_SRC:.c=.exe)
 
 # Compiler
 CC=gcc
-CC_GPU=pgcc
+CC_GPU=nvcc
 FC=gfortran
 FC_GPU=pgfortran
 
