@@ -54,8 +54,9 @@ def laplacian_numba(Uc,dz,dx):
     
     return lap
 
-def acousticWaveEquationCUDA(Uf_g,Uc_g,lap,vp_g,dz,dx,dt,nb):
-    Nz, Nx = Uf_g.shape
+@staticmethod
+def LaplacianCUDA(Uc_g,lap,dz,dx):
+    Nz, Nx = Uc_g.shape
     
     # Grid setup
     total_pixels = Nz * Nx
@@ -75,11 +76,19 @@ def acousticWaveEquationCUDA(Uf_g,Uc_g,lap,vp_g,dz,dx,dt,nb):
             cp.int32(Nx)          # int Nx
         )
     )
-    # Damping 
-    Uf_g,Uc_g = apply_dampingCUDA(Uf_g,Uc_g,nb)
+    return lap
+
+@staticmethod
+def acousticWaveEquationCUDA(Uf_g,Uc_g,lap,vp_g,dz,dx,dt,nb):
+    Nz, Nx = Uf_g.shape
     
+    lap = LaplacianCUDA(Uc_g,lap,dz,dx)
+
     # Acoustic Wavefield Update
     Uf_g = (vp_g * vp_g) * (dt * dt) * lap + 2.0 * Uc_g - Uf_g
+
+    # Damping 
+    Uf_g,Uc_g = apply_dampingCUDA(Uf_g,Uc_g,nb)
     
     return Uf_g,Uc_g
 

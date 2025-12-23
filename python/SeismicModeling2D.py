@@ -182,7 +182,8 @@ class wavefield:
                 print("step = %i" %k)
                 if self.snap:
                     ax.cla()
-                    ax.imshow(Uc_g[self.nb:-self.nb,self.nb:-self.nb].get())
+                    # ax.imshow(Uc_g[self.nb:-self.nb,self.nb:-self.nb].get())
+                    ax.imshow(Uc_g.get())
                     plt.pause(0.001)           
         return self.seismogram
 
