@@ -12,7 +12,7 @@ from solvers import laplacian_serial
 from solvers import laplacian_numba
 
 from solvers import acousticWaveEquationCUDA
-from solvers import apply_dampingCUDA
+
 class wavefield:
 
     def __init__(self):
@@ -167,11 +167,15 @@ class wavefield:
         
         sz,sx = self.sz,self.sx
         for k in range(0,self.Nt):
-            Uc_g[sz,sx] = Uc_g[sz,sx] - (self.dt*self.dt)*(vp_g[sz,sx]*vp_g[sz,sx]) * source_g[k]
-            Uf_g = acousticWaveEquationCUDA(Uf_g,Uc_g,lap,vp_g,self.dz,self.dx,self.dt)
-            Uf_g,Uc_g = Uc_g,Uf_g # swap pointers
-            Uf_g,Uc_g = apply_dampingCUDA(Uf_g,Uc_g,self.nb)
-
+            # source injection
+            Uc_g[sz,sx] -= (self.dt*self.dt)*(vp_g[sz,sx]*vp_g[sz,sx]) * source_g[k]
+            
+            # acoustic wave equation
+            Uf_g, Uc_g = acousticWaveEquationCUDA(Uf_g,Uc_g,lap,vp_g,self.dz,self.dx,self.dt,self.nb)
+            
+            # swap pointers
+            Uf_g,Uc_g = Uc_g,Uf_g 
+            
             self.register_seismogramCUDA(k,Uc_g)
 
             if (k%100 ==0):
