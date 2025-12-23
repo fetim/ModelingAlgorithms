@@ -4,7 +4,7 @@ import cupy as cp
 
 from CUDA_Kernels import laplacian_kernel
 from CUDA_Kernels import laplacian_kernel_8th   
-
+from CUDA_Kernels import DampingWavefieldKernel
 #%% Numba JIT-based functions
 @staticmethod
 @jit(nopython=True,parallel=True)
@@ -117,4 +117,14 @@ def update_wavefieldCUDA(Uc_g,Uf_g):
     Uf_g,Uc_g = cp.copy(Uc_g), cp.copy(Uf_g)
     return Uf_g,Uc_g
 
+def apply_dampingCUDA(Uf_g,Uc_g,nb):
+    Nz,Nx = cp.int32(cp.shape(Uf_g))
+    #block and grid sizes
+    total_size = Nz * Nx
+    treads_per_block = 256
+    # how many blocks are needed to cover all elements
+    blocks_per_grid = (total_size + treads_per_block - 1) // treads_per_block
+    #launch kernel
+    DampingWavefieldKernel((blocks_per_grid,), (treads_per_block,), (Uf_g,Uc_g,nb,Nz,Nx))
+    return Uf_g,Uc_g
     

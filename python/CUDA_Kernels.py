@@ -42,7 +42,7 @@ laplacian_kernel_8th = cp.ElementwiseKernel(
     int ix = i % Nx;
 
     // check boundaries 
-    if (iz < 2 || iz >= Nz - 2 || ix < 2 || ix >= Nx - 2) {
+    if (iz < 4 || iz >= Nz - 4 || ix < 4 || ix >= Nx - 4) {
         lap = 0.0f;
         return;
     }
@@ -105,7 +105,7 @@ laplacian_kernel_8th = cp.ElementwiseKernel(
 
 absorb_code = r'''
 extern "C" __global__
-void ABKernel(float* Uf , float* Uc, int nb, int Nz, int Nx) {
+void DampingWavefieldKernel(float* Uf , float* Uc, int nb, int Nz, int Nx) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int total_size = Nz * Nx;
     if (i >= total_size) return;
@@ -139,4 +139,4 @@ void ABKernel(float* Uf , float* Uc, int nb, int Nz, int Nx) {
     }
 }
 '''
-ABKernel = cp.RawKernel(absorb_code, 'ABKernel')
+DampingWavefieldKernel = cp.RawKernel(absorb_code, 'DampingWavefieldKernel')

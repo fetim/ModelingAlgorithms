@@ -14,6 +14,7 @@ from solvers import laplacian_cupy
 
 from solvers import acousticWaveEquationCUDA
 from solvers import update_wavefieldCUDA
+from solvers import apply_dampingCUDA
 class wavefield:
 
     def __init__(self):
@@ -27,7 +28,7 @@ class wavefield:
         self.dz   = 5.
         self.dt   = 0.0005
  
-        self.L    = 10000
+        self.L    = 2000
         self.D    = 2000
         self.T    = 1
 
@@ -41,6 +42,7 @@ class wavefield:
         self.Nz   = len(self.z)
         self.Nt   = len(self.t)
 
+        self.nb   = 50  # absorbing boundary thickness in grid points
         self.Nrec = self.Nx
 
         self.vp         = zeros([self.Nz,self.Nx])
@@ -79,7 +81,7 @@ class wavefield:
 
     def acquisition_geometry(self):
         self.sx = int(self.L/2/self.dx)
-        self.sz = 2
+        self.sz = int(self.D/2/self.dz)
 
         self.rx = arange(0,self.Nrec,dtype=int)
         self.rz = zeros([self.Nrec],dtype=int) + 10
@@ -133,7 +135,8 @@ class wavefield:
     def forward_modelingGPU(self,sz,sx):
         print("info: GPU Forward Modeling")
         if self.snap: fig, ax = plt.subplots()
-        
+        # self.Nx += self.nb
+
         self.allocate_wavefields()
 
         Uf_g = cp.zeros_like(cp.float32(self.future))
@@ -145,6 +148,8 @@ class wavefield:
             Uc_g[sz,sx] = Uc_g[sz,sx] - (self.dt*self.dt)*(vp_g[sz,sx]*vp_g[sz,sx]) * source_g[k]
             Uf_g = acousticWaveEquationCUDA(Uf_g,Uc_g,vp_g,self.dz,self.dx,self.dt)
             Uf_g,Uc_g = update_wavefieldCUDA(Uc_g,Uf_g)
+            Uf_g,Uc_g = apply_dampingCUDA(Uf_g,Uc_g,self.nb)
+
             self.register_seismogramCUDA(k,Uc_g)
 
             if (k%100 ==0):
@@ -187,7 +192,7 @@ if __name__ == "__main__":
     u = wavefield()
 
     # load velocity model
-    u.vp = velocitymodel_3layers(u.vp,1500,2000,3000)
+    u.vp = velocitymodel_3layers(u.vp,2000,2000,2000)
 
     u.check_dispersionstability()
 
