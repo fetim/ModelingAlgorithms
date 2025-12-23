@@ -13,9 +13,7 @@ from solvers import laplacian_numba
 from solvers import laplacian_roll
 from solvers import laplacian_cupy
 
-from solvers import acousticWaveEquationCUDA
 from solvers import acousticWaveEquationCUDA_raw
-from solvers import update_wavefieldCUDA
 from solvers import apply_dampingCUDA
 class wavefield:
 
@@ -30,7 +28,7 @@ class wavefield:
         self.dz   = 5.
         self.dt   = 0.0005
  
-        self.L    = 2000
+        self.L    = 5000
         self.D    = 2000
         self.T    = 1
 
@@ -172,9 +170,8 @@ class wavefield:
         sz,sx = self.sz,self.sx
         for k in range(0,self.Nt):
             Uc_g[sz,sx] = Uc_g[sz,sx] - (self.dt*self.dt)*(vp_g[sz,sx]*vp_g[sz,sx]) * source_g[k]
-            # Uf_g = acousticWaveEquationCUDA(Uf_g,Uc_g,vp_g,self.dz,self.dx,self.dt)
             Uf_g = acousticWaveEquationCUDA_raw(Uf_g,Uc_g,vp_g,self.dz,self.dx,self.dt)
-            Uf_g,Uc_g = update_wavefieldCUDA(Uc_g,Uf_g)
+            Uf_g,Uc_g = Uc_g,Uf_g # swap pointers
             Uf_g,Uc_g = apply_dampingCUDA(Uf_g,Uc_g,self.nb)
 
             self.register_seismogramCUDA(k,Uc_g)
@@ -183,7 +180,7 @@ class wavefield:
                 print("step = %i" %k)
                 if self.snap:
                     ax.cla()
-                    ax.imshow(Uc_g.get())
+                    ax.imshow(Uc_g[self.nb:-self.nb,self.nb:-self.nb].get())
                     plt.pause(0.001)           
         return self.seismogram
 
