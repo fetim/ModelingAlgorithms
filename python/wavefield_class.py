@@ -25,11 +25,11 @@ class wavefield:
     def readparameters(self):
         self.dx   = 5.
         self.dz   = 5.
-        self.dt   = 0.001
+        self.dt   = 0.0005
  
         self.L    = 10000
         self.D    = 2000
-        self.T    = 2
+        self.T    = 1
 
         self.fcut = 60 # Max frequency
 

@@ -108,7 +108,8 @@ def laplacian_cupy(Uc,dz,dx):
 def acousticWaveEquationCUDA(Uf_g,Uc_g,vp_g,dz,dx,dt):
     Nz,Nx = cp.int32(cp.shape(Uf_g))
     lap = cp.zeros_like(Uf_g)
-    laplacian_kernel(Uc_g, dz, dx, Nz, Nx, lap)
+    # laplacian_kernel(Uc_g, dz, dx, Nz, Nx, lap)
+    laplacian_kernel_8th(Uc_g, dz, dx, Nz, Nx, lap)
     Uf_g = (vp_g * vp_g) * (dt * dt) * lap + 2.0 * Uc_g - Uf_g
     return Uf_g
 
