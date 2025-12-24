@@ -79,16 +79,22 @@ def LaplacianCUDA(Uc_g,lap,dz,dx):
     return lap
 
 @staticmethod
+def laplacianPseudoSpectralCUDA(Uc_g,lap,dz,dx):
+    Uk = cp.fft.fft2(Uc_g)
+    lapk = Uk * lap
+    return cp.fft.ifft2(lapk,s=Uc_g.shape).real
+
+@staticmethod
 def acousticWaveEquationCUDA(Uf_g,Uc_g,lap,vp_g,dz,dx,dt,nb):
     Nz, Nx = Uf_g.shape
     
-    lap = LaplacianCUDA(Uc_g,lap,dz,dx)
-
     # Acoustic Wavefield Update
+    lap = LaplacianCUDA(Uc_g,lap,dz,dx)
     Uf_g = (vp_g * vp_g) * (dt * dt) * lap + 2.0 * Uc_g - Uf_g
-
-    # Damping 
     Uf_g,Uc_g = apply_dampingCUDA(Uf_g,Uc_g,nb)
+    
+    # Uf_g = (vp_g * vp_g) * (dt * dt) * laplacianPseudoSpectralCUDA(Uc_g,lap,dz,dx) + 2.0 * Uc_g - Uf_g
+    
     
     return Uf_g,Uc_g
 

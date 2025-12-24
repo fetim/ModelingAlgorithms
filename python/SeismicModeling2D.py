@@ -22,9 +22,9 @@ class wavefield:
         self = self.readparameters()
 
     def readparameters(self):
-        self.dx   = 5.
-        self.dz   = 5.
-        self.dt   = 0.0005
+        self.dx   = 6.25
+        self.dz   = 6.25
+        self.dt   = 0.001
  
         self.L    = 5000
         self.D    = 2000
@@ -155,6 +155,15 @@ class wavefield:
         self.allocate_wavefields()
 
         lap = cp.zeros_like(cp.float32(self.future))
+
+        # kz = cp.fft.fftfreq(self.Nz,d=self.dz) * 2 * cp.pi
+        # kz = kz.reshape(-1,1)
+
+        # kx = cp.fft.fftfreq(self.Nx,d=self.dx) * 2 * cp.pi
+        # kx = kx.reshape(1,-1)
+        
+        # lap = - (kz**2 + kx**2)
+
         Uf_g = cp.zeros_like(cp.float32(self.future))
         Uc_g = cp.zeros_like(cp.float32(self.current))
         vp_g = cp.asarray(cp.float32(self.vp))
